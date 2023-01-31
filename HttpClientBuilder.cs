@@ -13,6 +13,7 @@
         {
             var client = _clientFactory.CreateClient(clientType);
             client.BaseAddress = new Uri(basePath);
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
             return client;
         }
