@@ -24,9 +24,8 @@
 
         public async Task<Tuple<HttpStatusCode, string>> Post(HttpClient client, HttpRequestMessage request)
         {
-            var response = await client.PostAsync(request.RequestUri, request.Content);
-
-            return Tuple.Create(response.StatusCode, response.Content.ReadAsStringAsync().Result);
+            var response = await client.SendAsync(request);
+            return  Tuple.Create(response.StatusCode, response.Content.ReadAsStringAsync().Result);
         }
 
         public async Task<Tuple<HttpStatusCode, string>> Put(HttpClient client, HttpRequestMessage request)

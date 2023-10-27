@@ -4,6 +4,8 @@
     public class HttpClientBuilder : Interfaces.IhttpClientBuilder
     {
         private readonly IHttpClientFactory _clientFactory;
+        private HttpMessageHandler handler;
+
         public HttpClientBuilder(IHttpClientFactory httpClientFactory)
         {
             _clientFactory = httpClientFactory;
@@ -24,6 +26,15 @@
             client.BaseAddress = new Uri(basePath);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            return client;
+        }
+
+        public HttpClient CreateOAuthClientWithFile(string clientType, string basePath, string accessToken)
+        {
+            var client = _clientFactory.CreateClient(clientType);
+            client.BaseAddress = new Uri(basePath);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
             return client;
         }
