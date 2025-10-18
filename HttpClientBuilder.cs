@@ -4,7 +4,6 @@
     public class HttpClientBuilder : Interfaces.IhttpClientBuilder
     {
         private readonly IHttpClientFactory _clientFactory;
-        private HttpMessageHandler handler;
 
         public HttpClientBuilder(IHttpClientFactory httpClientFactory)
         {
