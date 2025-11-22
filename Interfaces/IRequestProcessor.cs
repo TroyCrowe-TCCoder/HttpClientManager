@@ -1,6 +1,5 @@
 ﻿namespace HttpClientManager.Interfaces
 {
-    using Microsoft.AspNetCore.Http;
     using System.Net;
 
     public interface IRequestProcessor
