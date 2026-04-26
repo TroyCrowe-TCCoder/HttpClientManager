@@ -3,9 +3,25 @@
 ## Goal
 Use the shared standards files and rollout script to reduce manual setup for both future repositories and existing solutions.
 
+## Canonical Global Standards Repository Bootstrap
+If no dedicated global standards repository exists yet, create one first and treat it as the canonical source for shared standards documents.
+
+### Example: initialize a canonical global standards repository
+```powershell
+.\scripts\standards\Initialize-GlobalStandardsRepository.ps1 -GlobalRepositoryRoot 'C:\Repos\GlobalStandards'
+```
+
+After bootstrap:
+1. Initialize git remote for the global standards repository.
+2. Commit canonical standards files (`docs/standards/*`) to that repository.
+3. Use `docs/standards/global-standards-link-manifest.md` in application repositories for canonical source + sync guidance.
+
 ## What Can Be Automated
 The following can be applied automatically to repositories:
 - `docs/standards/global-engineering-standards.md`
+- `docs/standards/global-engineering-governance.md`
+- `docs/standards/global-model-execution-playbook.md`
+- `docs/standards/global-standards-link-manifest.md`
 - `docs/standards/copilot-global-user-instructions-template.md`
 - `docs/standards/copilot-global-user-instructions-ready-to-paste.md`
 - `docs/standards/repository-modernization-checklist.md`

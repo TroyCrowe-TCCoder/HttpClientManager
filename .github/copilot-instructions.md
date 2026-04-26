@@ -3,6 +3,9 @@
 Use this file as the repository-local `.github/copilot-instructions.md` starting point. Keep only meaningful project-specific deviations here. Global rules should live in the shared standards documents and global Copilot user instructions.
 
 ## Shared Standards
+Canonical source and sync guidance for shared standards lives in docs/standards/global-standards-link-manifest.md.  
+Global reusable active-model execution guidance lives in docs/standards/global-model-execution-playbook.md.  
+Global reusable check-in/merge/deploy governance lives in docs/standards/global-engineering-governance.md.  
 Global reusable engineering standards live in `docs/standards/global-engineering-standards.md`.
 The reusable Copilot user-instructions template lives in `docs/standards/copilot-global-user-instructions-template.md`.
 This repository instruction file should contain only project-specific context, deployment details, and approved deviations from the shared baseline.
