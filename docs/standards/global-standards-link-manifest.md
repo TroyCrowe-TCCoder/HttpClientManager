@@ -6,7 +6,7 @@ Define how this repository references canonical standards from a dedicated globa
 ## Canonical Source Repository
 - Repository name: `GlobalStandards` (suggested)
 - Canonical path root: `docs/standards/`
-- Azure DevOps remote URL: `https://dev.azure.com/tcrowe0170/DocumentManagerAPI/_git/GlobalStandards`
+- Azure DevOps remote URL: `https://dev.azure.com/tcrowe0170/GlobalStandards/_git/GlobalStandards`
 
 ## Canonical Documents to Reference
 - `docs/standards/global-engineering-standards.md`
