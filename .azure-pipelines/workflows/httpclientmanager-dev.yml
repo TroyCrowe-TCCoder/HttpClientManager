@@ -1,0 +1,11 @@
+trigger: none
+
+pr:
+  branches:
+    include:
+      - dev
+
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+extends:
+  template: httpclientmanager-ci.yml
