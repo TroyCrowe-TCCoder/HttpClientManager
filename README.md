@@ -4,6 +4,16 @@ A .NET 9 class library that provides a clean, DI-friendly abstraction over `IHtt
 
 ---
 
+## Local Validation
+
+Run the repository-local validation entry point before creating or updating a pull request:
+
+pwsh ./scripts/validate.ps1 -Pack
+
+This repository follows the class-library promotion model. The validation entry point restores, builds, optionally runs tests when test projects exist, and produces the traceable package output used for promotion.
+
+---
+
 ## Table of Contents
 
 - [Features](#features)
@@ -273,3 +283,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, 
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for a full version history.
+
+

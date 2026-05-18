@@ -23,11 +23,11 @@ stages:
       displayName: dotnet restore
       inputs:
         command: restore
-        projects: $(solutionPath)
+        projects: $(projectPath)
 
     - task: DotNetCoreCLI@2
       displayName: dotnet build
       inputs:
         command: build
-        projects: $(solutionPath)
+        projects: $(projectPath)
         arguments: --configuration $(buildConfiguration) --no-restore
