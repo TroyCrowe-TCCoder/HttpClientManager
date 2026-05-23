@@ -75,6 +75,19 @@ public class RequestManager : IRequestManager
         return new(HttpMethod.Put, url) { Content = httpContent };
     }
 
+    /// <inheritdoc/>
+    public HttpRequestMessage PatchRequest(string url, string content)
+    {
+        // Validate the target URI and JSON payload before allocating request content.
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        ArgumentException.ThrowIfNullOrWhiteSpace(content);
+        EnsurePermittedScheme(url);
+
+        // Use UTF-8 JSON content so downstream APIs receive a predictable payload encoding.
+        HttpContent httpContent = new StringContent(content, Encoding.UTF8, "application/json");
+        return new(HttpMethod.Patch, url) { Content = httpContent };
+    }
+
     // Blocks non-HTTP(S) absolute URIs (e.g. file://, ftp://) and protocol-relative URLs (e.g. //evil.com)
     // to prevent SSRF to unexpected transports. Relative URIs are allowed, but they must still parse
     // successfully so malformed values fail here as ArgumentException instead of later as UriFormatException.

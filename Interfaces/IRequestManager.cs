@@ -47,4 +47,11 @@ public interface IRequestManager
     /// or when <paramref name="url"/> is not a valid relative or absolute URI or fails scheme validation.
     /// </exception>
     HttpRequestMessage PutRequest(string url, string content);
+
+    /// <summary>Creates an HTTP PATCH message with a JSON string body.</summary>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="url"/> or <paramref name="content"/> is null or whitespace,
+    /// or when <paramref name="url"/> is not a valid relative or absolute URI or fails scheme validation.
+    /// </exception>
+    HttpRequestMessage PatchRequest(string url, string content);
 }

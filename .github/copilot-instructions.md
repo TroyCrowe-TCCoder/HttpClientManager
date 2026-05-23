@@ -1,6 +1,6 @@
 # Repository Addendum
 
-- **Global baseline:** [`docs/standards/global-governance-standards.md`](../docs/standards/global-governance-standards.md)
+- **Global baseline:** [Global Governance Standards](../../GlobalStandards/docs/standards/global-governance-standards.md)
 
 ## Repository Initialization Rules
 - This repository follows the class-library non-deployed-products model.

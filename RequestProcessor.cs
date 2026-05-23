@@ -27,7 +27,7 @@ public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProces
     private const long MaxResponseBodyBytes = 10 * 1024 * 1024; // 10 MB
 
     /// <inheritdoc/>
-    public async Task<Tuple<HttpStatusCode, string>> DeleteAsync(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
+    public async Task<HttpOperationResult> DeleteAsync(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
     {
         // Fail fast on null execution dependencies before issuing network I/O.
         ArgumentNullException.ThrowIfNull(client);
@@ -39,11 +39,13 @@ public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProces
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         LogReceivedResponse(request, response);
         EnsureResponseBodyWithinLimit(response);
-        return Tuple.Create(response.StatusCode, await ReadBodyWithLimitAsync(response.Content, ct).ConfigureAwait(false));
+        // Capture headers before the response is disposed; they are already materialised in memory.
+        var headers = response.Headers;
+        return new HttpOperationResult(response.StatusCode, await ReadBodyWithLimitAsync(response.Content, ct).ConfigureAwait(false), headers);
     }
 
     /// <inheritdoc/>
-    public async Task<Tuple<HttpStatusCode, string>> GetAsync(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
+    public async Task<HttpOperationResult> GetAsync(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
     {
         // Fail fast on null execution dependencies before issuing network I/O.
         ArgumentNullException.ThrowIfNull(client);
@@ -55,7 +57,9 @@ public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProces
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         LogReceivedResponse(request, response);
         EnsureResponseBodyWithinLimit(response);
-        return Tuple.Create(response.StatusCode, await ReadBodyWithLimitAsync(response.Content, ct).ConfigureAwait(false));
+        // Capture headers before the response is disposed; they are already materialised in memory.
+        var headers = response.Headers;
+        return new HttpOperationResult(response.StatusCode, await ReadBodyWithLimitAsync(response.Content, ct).ConfigureAwait(false), headers);
     }
 
     /// <inheritdoc/>
@@ -71,7 +75,7 @@ public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProces
     }
 
     /// <inheritdoc/>
-    public async Task<Tuple<HttpStatusCode, string>> PostAsync(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
+    public async Task<HttpOperationResult> PostAsync(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
     {
         // Fail fast on null execution dependencies before issuing network I/O.
         ArgumentNullException.ThrowIfNull(client);
@@ -83,7 +87,9 @@ public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProces
         LogReceivedResponse(request, response);
         // Reject oversized declared bodies before allocating the response payload in memory.
         EnsureResponseBodyWithinLimit(response);
-        return Tuple.Create(response.StatusCode, await ReadBodyWithLimitAsync(response.Content, ct).ConfigureAwait(false));
+        // Capture headers before the response is disposed; they are already materialised in memory.
+        var headers = response.Headers;
+        return new HttpOperationResult(response.StatusCode, await ReadBodyWithLimitAsync(response.Content, ct).ConfigureAwait(false), headers);
     }
 
     /// <inheritdoc/>
@@ -99,7 +105,7 @@ public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProces
     }
 
     /// <inheritdoc/>
-    public async Task<Tuple<HttpStatusCode, string>> PutAsync(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
+    public async Task<HttpOperationResult> PutAsync(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
     {
         // Fail fast on null execution dependencies before issuing network I/O.
         ArgumentNullException.ThrowIfNull(client);
@@ -111,7 +117,27 @@ public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProces
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         LogReceivedResponse(request, response);
         EnsureResponseBodyWithinLimit(response);
-        return Tuple.Create(response.StatusCode, await ReadBodyWithLimitAsync(response.Content, ct).ConfigureAwait(false));
+        // Capture headers before the response is disposed; they are already materialised in memory.
+        var headers = response.Headers;
+        return new HttpOperationResult(response.StatusCode, await ReadBodyWithLimitAsync(response.Content, ct).ConfigureAwait(false), headers);
+    }
+
+    /// <inheritdoc/>
+    public async Task<HttpOperationResult> PatchAsync(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
+    {
+        // Fail fast on null execution dependencies before issuing network I/O.
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(request);
+
+        LogSendingRequest(request);
+        // SendAsync preserves all headers on the request message and is required for PATCH.
+        // ResponseHeadersRead returns before the body is buffered, allowing the size check below to abort early.
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+        LogReceivedResponse(request, response);
+        EnsureResponseBodyWithinLimit(response);
+        // Capture headers before the response is disposed; they are already materialised in memory.
+        var headers = response.Headers;
+        return new HttpOperationResult(response.StatusCode, await ReadBodyWithLimitAsync(response.Content, ct).ConfigureAwait(false), headers);
     }
 
     // Throws if the server declares a Content-Length that exceeds MaxResponseBodyBytes.

@@ -10,7 +10,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
-- **Minimal class-library logging** — `HttpClientBuilder` and `RequestProcessor` now consume `ILogger<T>` and emit only safe structured diagnostics that fit a reusable library boundary: debug logs for successful client creation / request dispatch and warning logs when oversized responses are rejected; tokens and other secrets are never logged
+- **`IRequestManager.PatchRequest` / `RequestManager.PatchRequest`** — new method that builds an HTTP PATCH message with a UTF-8 JSON body, following the same input validation and scheme-check pattern as `PostRequest` and `PutRequest`
+- **`IRequestProcessor.PatchAsync` / `RequestProcessor.PatchAsync`** — new method that executes an HTTP PATCH request and returns an `HttpOperationResult`; enforces the 10 MB response-body limit and propagates `CancellationToken` end-to-end
+- **`HttpOperationResult` record** — replaces `Tuple<HttpStatusCode, string>` as the return type for all body-reading processor methods (`GetAsync`, `PostAsync`, `PutAsync`, `PatchAsync`, `DeleteAsync`); exposes `StatusCode`, `Body`, and `ResponseHeaders` so callers can inspect server-returned headers (e.g. `ETag`, `Location`, `Retry-After`) without needing direct access to the `HttpResponseMessage`
+- **`ServiceCollectionExtensions.AddHttpClientManager()`** — new `IServiceCollection` extension method that registers all HttpClientManager services into an existing collection; enables idiomatic `builder.Services.AddHttpClientManager()` registration in ASP.NET Core and Generic Host applications
+
+### Breaking Changes
+
+- **`IRequestProcessor` return types changed** — `GetAsync`, `PostAsync`, `PutAsync`, `DeleteAsync` now return `Task<HttpOperationResult>` instead of `Task<Tuple<HttpStatusCode, string>>`; update call sites from `result.Item1` / `result.Item2` to `result.StatusCode` / `result.Body`
+- **`HostBuilder` removed** — `HostBuilder.ConfigureServices()` has been removed; replace with `services.AddHttpClientManager()` in your host setup
 
 ### Security
 

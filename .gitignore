@@ -360,4 +360,10 @@ MigrationBackup/
 .ionide/
 
 # Fody - auto-generated XML schema
+
+# Test run results and coverage reports — regenerated on every run
+**/TestResults/
+
+# Coverage report output
+coverage.cobertura.xml
 FodyWeavers.xsd

@@ -1,10 +1,25 @@
 param(
-    [switch]$Pack
+    [switch]$Pack,
+    [switch]$SkipClean
 )
 
 $ErrorActionPreference = 'Stop'
 
 $root = Resolve-Path (Join-Path $PSScriptRoot '..')
+
+# Remove TestResults folders produced by previous test runs unless the caller opts out.
+# These accumulate a new GUID-named subfolder on every run and are not source-controlled.
+if (-not $SkipClean)
+{
+    $testResultDirs = Get-ChildItem -Path $root -Recurse -Directory -Filter 'TestResults' |
+        Where-Object { $_.FullName -notlike '*\bin\*' -and $_.FullName -notlike '*\obj\*' }
+
+    foreach ($dir in $testResultDirs)
+    {
+        Write-Host "Cleaning $($dir.FullName)..."
+        Remove-Item -Path $dir.FullName -Recurse -Force
+    }
+}
 $solution = Get-ChildItem -Path $root -Filter *.sln | Select-Object -First 1
 $project = Get-ChildItem -Path $root -Filter *.csproj | Select-Object -First 1
 

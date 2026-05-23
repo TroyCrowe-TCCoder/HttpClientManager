@@ -1,0 +1,40 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr: none
+
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+variables:
+- template: ../variables/common.yml
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+# Download the validated package artifact produced by the PR gate (validation.yml)
+# rather than rebuilding — the library was already built, tested, and packed before merge.
+- task: DownloadPipelineArtifact@2
+  displayName: Download validated NuGet artifact
+  inputs:
+    buildType: specific
+    project: HttpClientManager
+    pipeline: validation
+    runVersion: latestFromBranch
+    runBranch: refs/heads/main
+    artifactName: $(packageArtifactName)
+    targetPath: $(Pipeline.Workspace)/nuget
+
+- task: NuGetAuthenticate@1
+  displayName: Authenticate with Azure Artifacts
+
+- task: DotNetCoreCLI@2
+  displayName: Publish to CaptiveInnovations feed
+  inputs:
+    command: push
+    packagesToPush: $(Pipeline.Workspace)/nuget/*.nupkg
+    nuGetFeedType: internal
+    publishVstsFeed: $(artifactsFeedName)
+    allowPackageConflicts: false

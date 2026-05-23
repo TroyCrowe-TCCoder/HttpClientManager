@@ -1,16 +1,40 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditLevel>moderate</NuGetAuditLevel>
     <NuGetAuditMode>all</NuGetAuditMode>
+
+    <!-- NuGet package identity -->
+    <PackageId>HttpClientManager</PackageId>
+    <Version>2.0.0</Version>
+    <Authors>Troy C</Authors>
+    <Company>Captive Innovations</Company>
+    <Product>HttpClientManager</Product>
+    <Description>A .NET 10 class library providing a clean, DI-friendly abstraction over IHttpClientFactory. Centralises HTTP client creation, request building, and response processing behind well-defined interfaces.</Description>
+    <PackageTags>httpclient;http;rest;dependency-injection;dotnet</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://dev.azure.com/tcrowe0170/_git/HttpClientManager</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- Embed XML doc comments so consumers see IntelliSense from the package -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Suppress CS1591 (missing XML doc) warnings — public members are documented;
+         internal/private helpers are intentionally undocumented -->
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+  </ItemGroup>
+
+  <!-- Include README.md at the package root so NuGet.org and VS display it -->
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

@@ -4,3 +4,5 @@ variables:
   projectPath: 'HttpClientManager.csproj'
   packageArtifactName: 'nuget-drop'
   devNextBranch: 'main'
+  artifactsFeedName: 'CaptiveInnovations'
+  artifactsFeedUrl: 'https://pkgs.dev.azure.com/tcrowe0170/_packaging/CaptiveInnovations/nuget/v3/index.json'

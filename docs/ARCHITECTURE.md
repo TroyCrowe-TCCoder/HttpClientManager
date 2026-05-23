@@ -31,8 +31,8 @@ This document describes the component design, design patterns, and architectural
 |---|---|---|---|
 | `HttpClientBuilder` | `IHttpClientBuilder` | Produce configured `HttpClient` instances | Store tokens, own lifecycle of clients |
 | `RequestManager` | `IRequestManager` | Build `HttpRequestMessage` objects | Perform I/O, hold state |
-| `RequestProcessor` | `IRequestProcessor` | Execute HTTP calls and return results | Interpret business logic in responses |
-| `HostBuilder` | — | Register services in `IServiceCollection` | Be used outside application bootstrap |
+| `RequestProcessor` | `IRequestProcessor` | Execute HTTP calls and return `HttpOperationResult` | Interpret business logic in responses |
+| `ServiceCollectionExtensions` | — | Register services via `AddHttpClientManager()` | Be used outside application bootstrap |
 
 ---
 
@@ -60,15 +60,15 @@ Consumer → IHttpClientBuilder.CreateOAuthClient(...)
 
 ### Strategy Pattern — `IRequestProcessor`
 
-`RequestProcessor` applies a **strategy** per HTTP verb. Consumers select the correct method (`GetAsync`, `PostAsync`, `PutAsync`, `DeleteAsync`, `GetFileAsync`, `PostFileRequestAsync`) based on the operation, and the processor handles the dispatch. Adding a new verb or response shape means adding a new method to the interface and implementation without changing existing methods (OCP).
+`RequestProcessor` applies a **strategy** per HTTP verb. Consumers select the correct method (`GetAsync`, `PostAsync`, `PatchAsync`, `PutAsync`, `DeleteAsync`, `GetFileAsync`, `PostFileRequestAsync`) based on the operation, and the processor handles the dispatch. Adding a new verb or response shape means adding a new method to the interface and implementation without changing existing methods (OCP).
 
 `RequestProcessor` also consumes `ILogger<RequestProcessor>` because it is the library's network-I/O boundary. Logging is intentionally limited to request-dispatch debug messages and warning messages when the library rejects oversized responses.
 
 ### Service Locator avoided — Dependency Injection
 
-No component calls `IServiceProvider` directly. All dependencies are constructor-injected. `HostBuilder.ConfigureServices()` is the single point where the container is composed, keeping the rest of the library free of DI-framework concerns.
+No component calls `IServiceProvider` directly. All dependencies are constructor-injected. `ServiceCollectionExtensions.AddHttpClientManager()` is the single registration point, keeping the rest of the library free of DI-framework concerns.
 
-`HostBuilder.ConfigureServices()` also registers `Microsoft.Extensions.Logging` so the library's `ILogger<T>` dependencies resolve even when consumers use the helper service collection directly.
+`AddHttpClientManager()` registers `Microsoft.Extensions.Logging` and `IHttpClientFactory` so the library's `ILogger<T>` and `IHttpClientFactory` dependencies resolve correctly inside any host.
 
 ---
 
@@ -87,9 +87,8 @@ No component calls `IServiceProvider` directly. All dependencies are constructor
 
 3. Caller executes request
       IRequestProcessor.PostAsync(client, request)
-      → HttpResponseMessage
       → bounded body read (10 MB max for declared or chunked responses)
-      → returns Tuple<HttpStatusCode, string>
+      → returns HttpOperationResult { StatusCode, Body, ResponseHeaders }
 
 4. Caller deserializes body
       JsonSerializer.Deserialize<T>(body)
@@ -127,23 +126,23 @@ RequestProcessor
 ├── ILogger<RequestProcessor>  (external — injected)
 └── receives HttpClient at call time
 
-HostBuilder
-└── IServiceCollection  (external — extension target)
+ServiceCollectionExtensions  (static — no dependencies)
+└── registers into IServiceCollection
 ```
 
 ---
 
 ## Architectural Decision Records (ADRs)
 
-### ADR-001: Return `Tuple<HttpStatusCode, string>` from processor methods
+### ADR-001: Return `HttpOperationResult` from processor methods
 
-**Status:** Accepted
+**Status:** Supersedes initial `Tuple<HttpStatusCode, string>` decision
 
-**Context:** The processor needs to return both the HTTP status code and the response body to allow callers to handle errors and deserialise responses. Several options were considered: custom result types, `HttpResponseMessage` directly, or `ValueTuple`.
+**Context:** The processor needs to return the HTTP status code, response body, and response headers. The original `Tuple<HttpStatusCode, string>` provided no access to headers (e.g. `ETag`, `Location`, `Retry-After`), which is needed for correct REST interaction patterns.
 
-**Decision:** Use `Tuple<HttpStatusCode, string>` for `Get`, `Post`, `Put`, `Delete`. Return `HttpResponseMessage` directly for file operations where the caller needs to stream the body.
+**Decision:** Replace `Tuple<HttpStatusCode, string>` with the `HttpOperationResult` sealed record (`StatusCode`, `Body`, `ResponseHeaders`). Return `HttpResponseMessage` directly for file/streaming operations where the caller needs full control.
 
-**Consequences:** Callers must deserialise the JSON body themselves. This is intentional — the processor has no knowledge of target types (SRP). A future ADR may introduce a generic `ProcessorResult<T>` if strong typing is needed widely.
+**Consequences:** Breaking change at the call site (`result.Item1`/`result.Item2` → `result.StatusCode`/`result.Body`). Callers must still deserialise the body themselves — the processor has no knowledge of target types (SRP). A future ADR may introduce a generic `GetAsync<T>` overload if strong typing is needed widely.
 
 ---
 
@@ -159,15 +158,15 @@ HostBuilder
 
 ---
 
-### ADR-003: `HostBuilder` is a static class
+### ADR-003: DI registration via `IServiceCollection` extension method
 
-**Status:** Accepted
+**Status:** Updated — `HostBuilder` removed
 
-**Context:** DI registration helpers in .NET are conventionally implemented as static extension methods on `IServiceCollection`. A static class avoids the need to instantiate the helper and clearly signals it is infrastructure-only code.
+**Context:** The original `HostBuilder.ConfigureServices()` returned a new isolated `IServiceCollection`, which was incompatible with hosts that already owned a collection (ASP.NET Core, Generic Host). The idiomatic .NET pattern is a `this IServiceCollection` extension method.
 
-**Decision:** `HostBuilder` is `static` and returns `IServiceCollection` from `ConfigureServices()`.
+**Decision:** `HostBuilder` was removed. `ServiceCollectionExtensions.AddHttpClientManager(this IServiceCollection)` is the sole registration entry point.
 
-**Consequences:** `HostBuilder` cannot be mocked or subclassed. It is not part of the testable core of the library; only the registered services are tested.
+**Consequences:** Consumers call `builder.Services.AddHttpClientManager()` and the library registers into the host's existing container. `ServiceCollectionExtensions` is a static class and cannot be mocked; only the registered services are tested.
 
 ---
 
@@ -180,6 +179,20 @@ HostBuilder
 **Decision:** Added `CancellationToken ct = default` to all six methods in `IRequestProcessor` and their `RequestProcessor` implementations. The token is forwarded to every downstream `HttpClient` call and to the bounded response-body reader used by the JSON/string-returning methods. All async methods in `IRequestProcessor` were also renamed with the `Async` suffix to comply with the async naming standard.
 
 **Consequences:** Non-breaking API addition (default parameter). Existing callers require no changes. Callers that need cooperative cancellation now pass a `CancellationToken` from their own scope. The body-reading methods also enforce the library's 10 MB response-size limit during streaming, so chunked responses no longer rely solely on named-client buffer configuration.
+
+---
+
+---
+
+### ADR-005: PATCH verb added to `IRequestManager` and `IRequestProcessor`
+
+**Status:** Accepted
+
+**Context:** REST APIs (including Microsoft Graph and Azure REST APIs) use PATCH for partial updates. The library previously supported only GET, POST, PUT, and DELETE, requiring consumers to build `HttpRequestMessage` manually for PATCH operations.
+
+**Decision:** Added `IRequestManager.PatchRequest(url, content)` and `IRequestProcessor.PatchAsync(client, request, ct)`, following the same validation, encoding, and size-limit patterns as the existing verbs.
+
+**Consequences:** The PATCH surface is consistent with the existing verb methods. Consumers that previously constructed PATCH messages manually can migrate to the new methods.
 
 ---
 

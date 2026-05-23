@@ -1,6 +1,18 @@
 # HttpClientManager
 
-A .NET 9 class library that provides a clean, DI-friendly abstraction over `IHttpClientFactory` for consuming HTTP APIs. Designed to be consumed by front-end or orchestration applications, it centralises all HTTP concerns — client creation, request building, and response processing — behind well-defined interfaces.
+A .NET 10 class library that provides a clean, DI-friendly abstraction over `IHttpClientFactory` for consuming HTTP APIs. Designed to be consumed by front-end or orchestration applications, it centralises all HTTP concerns — client creation, request building, and response processing — behind well-defined interfaces.
+
+## Installation
+
+```shell
+dotnet add package HttpClientManager
+```
+
+Register the library in your host setup:
+
+```csharp
+builder.Services.AddHttpClientManager();
+```
 
 ---
 
