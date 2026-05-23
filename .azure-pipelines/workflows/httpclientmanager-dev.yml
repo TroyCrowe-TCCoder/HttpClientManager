@@ -1,4 +1,24 @@
-trigger: none
+# Class Library — dev pipeline (PR gate + post-merge carry-forward)
+# App type: Class Library (.NET NuGet package or shared assembly)
+# Environment: dev
+# Register ONLY this file as a pipeline in Azure DevOps.
+#
+# PIPELINE SEQUENCE
+#   On PR targeting dev (Build.Reason == PullRequest):
+#     02-change-detection → 03-build+pack → 04-test → 05-notify-failure
+#
+#   On CI push to dev after merge (Build.Reason != PullRequest):
+#     CarryForward → creates the dev→main promotion PR via auto-pr-chain template
+#
+# DEVIATION: Combining the PR gate and post-merge carry-forward into one registered
+# pipeline deviates from the single-responsibility file rule in
+# global-azure-devops-pipeline-standards.md. See standards/azure-devops-pipeline-standards.md
+# deviation DEV-002 for the approved rationale.
+
+trigger:
+  branches:
+    include:
+      - dev
 
 pr:
   branches:
@@ -7,5 +27,37 @@ pr:
 
 name: $(Date:yyyyMMdd)$(Rev:.r)
 
-extends:
-  template: httpclientmanager-ci.yml
+variables:
+- template: ../variables/common.yml
+
+stages:
+- template: httpclientmanager-02-change-detection.yml
+- template: httpclientmanager-03-build.yml
+- template: httpclientmanager-04-test.yml
+- template: httpclientmanager-05-notify-failure.yml
+
+- stage: CarryForward
+  displayName: Create dev→main promotion PR
+  dependsOn: []
+  condition: |
+    and(
+      eq(variables['Build.Reason'], 'IndividualCI'),
+      eq(variables['Build.SourceBranch'], 'refs/heads/dev')
+    )
+  jobs:
+  - job: PromotePR
+    displayName: Carry forward to main
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
+      persistCredentials: true
+      clean: true
+
+    - template: ../templates/auto-pr-chain.yml
+      parameters:
+        adoOrg: 'tcrowe0170'
+        adoProject: 'HttpClientManager'
+        repositoryId: 'HttpClientManager'
+        sourceBranch: 'dev'
+        targetBranch: '$(devNextBranch)'

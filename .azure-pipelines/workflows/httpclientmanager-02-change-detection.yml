@@ -1,0 +1,47 @@
+# Class Library — change detection
+# App type: Class Library (.NET NuGet package or shared assembly)
+# Environment: dev
+# Step 2 of 5 — Do NOT register this file as a pipeline. Loaded by httpclientmanager-dev.yml.
+
+stages:
+- stage: ChangeDetection
+  displayName: Detect Code Changes
+  condition: eq(variables['Build.Reason'], 'PullRequest')
+  jobs:
+  - job: Detect
+    displayName: Check for non-documentation changes
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
+      fetchDepth: 0
+
+    - task: PowerShell@2
+      displayName: Evaluate changed files
+      name: setvar
+      inputs:
+        pwsh: true
+        targetType: inline
+        script: |
+          $targetBranch = '$(System.PullRequest.TargetBranch)' -replace 'refs/heads/', ''
+          # When not a PR build, ADO leaves the macro literal unexpanded
+          if ([string]::IsNullOrWhiteSpace($targetBranch) -or $targetBranch -like '*$(*)*') {
+            # Not a PR build (e.g. manual run) — always treat as code changed
+            Write-Host "No PR target branch detected (manual run). Treating as code changes."
+            Write-Host "##vso[task.setvariable variable=codeChanged;isOutput=true]true"
+            exit 0
+          }
+          git fetch origin $targetBranch --depth=1 2>&1 | Out-Null
+          $changedFiles = git diff --name-only "origin/$targetBranch" HEAD
+          Write-Host "Changed files:"
+          $changedFiles | ForEach-Object { Write-Host "  $_" }
+          $codeChanged = $changedFiles | Where-Object {
+            $_ -notmatch '\.md$' -and $_ -notmatch '^docs/'
+          }
+          if ($codeChanged) {
+            Write-Host "Code changes detected. Build and test will run."
+            Write-Host "##vso[task.setvariable variable=codeChanged;isOutput=true]true"
+          } else {
+            Write-Host "Documentation-only changes detected. Skipping build and test."
+            Write-Host "##vso[task.setvariable variable=codeChanged;isOutput=true]false"
+          }

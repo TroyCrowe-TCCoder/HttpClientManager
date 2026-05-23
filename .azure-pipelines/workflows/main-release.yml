@@ -14,18 +14,18 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-# Download the validated package artifact produced by the PR gate (validation.yml)
-# rather than rebuilding — the library was already built, tested, and packed before merge.
+# Download the NuGet artifact produced during the Feature=>Dev PR validation.
+# No rebuild — the package was already built, tested, and stored at that point.
 - task: DownloadPipelineArtifact@2
-  displayName: Download validated NuGet artifact
+  displayName: Download NuGet artifact from dev build
   inputs:
     buildType: specific
-    project: HttpClientManager
-    pipeline: $(validationPipelineId)
-    runVersion: latestFromBranch
-    runBranch: refs/heads/main
+    project: $(System.TeamProjectId)
+    definition: 13
+    buildVersionToDownload: latestFromBranch
+    branchName: refs/heads/dev
     artifactName: $(packageArtifactName)
-    targetPath: $(Pipeline.Workspace)/nuget
+    targetPath: $(Pipeline.Workspace)/nuget-drop
 
 - task: NuGetAuthenticate@1
   displayName: Authenticate with Azure Artifacts
@@ -34,7 +34,7 @@ steps:
   displayName: Publish to CaptiveInnovations feed
   inputs:
     command: push
-    packagesToPush: $(Pipeline.Workspace)/nuget/*.nupkg
+    packagesToPush: $(Pipeline.Workspace)/nuget-drop/*.nupkg
     nuGetFeedType: internal
     publishVstsFeed: $(artifactsFeedName)
     allowPackageConflicts: false

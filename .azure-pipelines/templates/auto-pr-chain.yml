@@ -120,7 +120,7 @@ steps:
         $newPrId        = $createResponse.pullRequestId
         $newPrUrl       = "https://dev.azure.com/$org/$project/_git/$repoId/pullrequest/$newPrId"
 
-        Write-Host "##[section]Created PR #$newPrId: $newPrUrl"
+        Write-Host "##[section]Created PR #${newPrId}: $newPrUrl"
 
         # ── Step 5: Enable auto-complete ─────────────────────────────────────────
         # Retrieve the build service identity id from the PR creator field
@@ -139,7 +139,12 @@ steps:
         } | ConvertTo-Json -Depth 5
 
         $updateUrl = "$baseUrl/pullrequests/$($newPrId)?$apiVersion"
-        Invoke-RestMethod -Uri $updateUrl -Headers $headers -Method Patch -Body $acBody | Out-Null
-
-        Write-Host "Auto-complete enabled on PR #$newPrId."
+        try {
+          Invoke-RestMethod -Uri $updateUrl -Headers $headers -Method Patch -Body $acBody | Out-Null
+          Write-Host "Auto-complete enabled on PR #$newPrId."
+        } catch {
+          # Auto-complete may be rejected when required policies are not yet satisfied.
+          # The PR is created and will complete once reviewers approve and gates pass.
+          Write-Host "##[warning]Auto-complete could not be set on PR #$newPrId (policy gates pending): $($_.Exception.Message)"
+        }
         Write-Host "Carry-forward PR ready: ${{ parameters.sourceBranch }} → ${{ parameters.targetBranch }} | $newPrUrl"

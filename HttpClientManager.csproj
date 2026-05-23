@@ -23,7 +23,7 @@
 
     <!-- Embed XML doc comments so consumers see IntelliSense from the package -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- Suppress CS1591 (missing XML doc) warnings — public members are documented;
+    <!-- Suppress CS1591 (missing XML doc) warnings ï¿½ public members are documented;
          internal/private helpers are intentionally undocumented -->
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
@@ -34,7 +34,19 @@
 
   <!-- Include README.md at the package root so NuGet.org and VS display it -->
   <ItemGroup>
+    <None Include=".azure-pipelines\workflows\httpclientmanager-02-change-detection.yml" />
+    <None Include=".azure-pipelines\workflows\httpclientmanager-03-build.yml" />
+    <None Include=".azure-pipelines\workflows\httpclientmanager-04-test.yml" />
+    <None Include=".azure-pipelines\workflows\httpclientmanager-05-notify-failure.yml" />
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="docs\templates\PRs\" />
+  </ItemGroup>
 
+
+  <ItemGroup>
+    <Compile Remove="HttpClientManager.Tests\**\*.cs" />
+  </ItemGroup>
 </Project>
+

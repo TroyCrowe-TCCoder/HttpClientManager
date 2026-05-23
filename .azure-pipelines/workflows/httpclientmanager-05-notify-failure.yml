@@ -1,0 +1,76 @@
+# Class Library — failure notification
+# App type: Class Library (.NET NuGet package or shared assembly)
+# Environment: dev
+# Step 5 of 5 — Do NOT register this file as a pipeline. Loaded by httpclientmanager-dev.yml.
+#
+# Runs only when a previous stage failed. Posts a comment to the pull request
+# identifying the failure, the build number, the repository and branch, and a
+# direct link to the failed pipeline run.
+
+stages:
+- stage: NotifyFailure
+  displayName: Notify PR on Failure
+  dependsOn:
+  - ChangeDetection
+  - Build
+  - Test
+  condition: |
+    and(
+      failed(),
+      eq(variables['Build.Reason'], 'PullRequest')
+    )
+  jobs:
+  - job: PostComment
+    displayName: Post failure comment to PR
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: PowerShell@2
+      displayName: Post PR failure comment
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      inputs:
+        pwsh: true
+        targetType: inline
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $prId = '$(System.PullRequest.PullRequestId)'
+          if ([string]::IsNullOrWhiteSpace($prId)) {
+            Write-Host "No PR context — skipping notification."
+            exit 0
+          }
+          $collectionUri = '$(System.CollectionUri)'
+          $project       = '$(System.TeamProject)'
+          $repoId        = '$(Build.Repository.ID)'
+          $buildNumber   = '$(Build.BuildNumber)'
+          $branch        = '$(Build.SourceBranch)' -replace 'refs/heads/', ''
+          $repoName      = '$(Build.Repository.Name)'
+          $buildUrl      = "${collectionUri}${project}/_build/results?buildId=$(Build.BuildId)"
+
+          $message = @"
+          **Dev pipeline failed** — auto-merge is blocked.
+
+          | Field | Value |
+          |---|---|
+          | Repository | $repoName |
+          | Branch | $branch |
+          | Build | $buildNumber |
+          | Run | $buildUrl |
+
+          Fix the issue and push a new commit to re-trigger the pipeline.
+          "@
+
+          $threadUri = "${collectionUri}${project}/_apis/git/repositories/${repoId}/pullRequests/${prId}/threads?api-version=7.1"
+          $body = @{
+            comments = @(@{
+              parentCommentId = 0
+              content         = $message
+              commentType     = 1
+            })
+            status = 1
+          } | ConvertTo-Json -Depth 5
+
+          $token   = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($env:SYSTEM_ACCESSTOKEN)"))
+          $headers = @{ Authorization = "Basic $token"; 'Content-Type' = 'application/json' }
+          Invoke-RestMethod -Method Post -Uri $threadUri -Headers $headers -Body $body | Out-Null
+          Write-Host "Failure comment posted to PR #$prId."
