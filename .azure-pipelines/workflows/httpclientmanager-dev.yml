@@ -45,8 +45,39 @@ stages:
       eq(variables['Build.SourceBranch'], 'refs/heads/dev')
     )
   jobs:
+
+  # Re-publish the nuget-drop artifact from the prior PR validation run so that
+  # main-release can find it on this CI run via latestFromBranch on dev.
+  # At the time this job runs, the current build is still in progress, so
+  # latestFromBranch resolves to the last completed build — the PR validation run.
+  - job: RepublishArtifact
+    displayName: Re-publish NuGet artifact from PR validation build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: none
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download nuget-drop from PR validation build
+      inputs:
+        buildType: specific
+        project: $(System.TeamProjectId)
+        definition: 13
+        buildVersionToDownload: latestFromBranch
+        branchName: refs/heads/dev
+        artifactName: $(packageArtifactName)
+        targetPath: $(Pipeline.Workspace)/nuget-drop
+
+    - task: PublishBuildArtifacts@1
+      displayName: Re-publish nuget-drop on this CI run
+      inputs:
+        PathtoPublish: $(Pipeline.Workspace)/nuget-drop
+        ArtifactName: $(packageArtifactName)
+        publishLocation: Container
+
   - job: PromotePR
     displayName: Carry forward to main
+    dependsOn: RepublishArtifact
     pool:
       vmImage: ubuntu-latest
     steps:
