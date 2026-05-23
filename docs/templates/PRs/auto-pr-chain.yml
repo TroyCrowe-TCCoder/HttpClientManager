@@ -120,7 +120,7 @@ steps:
         $newPrId        = $createResponse.pullRequestId
         $newPrUrl       = "https://dev.azure.com/$org/$project/_git/$repoId/pullrequest/$newPrId"
 
-        Write-Host "##[section]Created PR #$newPrId: $newPrUrl"
+        Write-Host "##[section]Created PR #${newPrId}: ${newPrUrl}"
 
         # ── Step 5: Enable auto-complete ─────────────────────────────────────────
         # Retrieve the build service identity id from the PR creator field

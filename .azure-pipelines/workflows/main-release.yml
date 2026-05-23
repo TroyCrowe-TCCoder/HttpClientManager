@@ -21,7 +21,7 @@ steps:
   inputs:
     buildType: specific
     project: HttpClientManager
-    pipeline: validation
+    pipeline: $(validationPipelineId)
     runVersion: latestFromBranch
     runBranch: refs/heads/main
     artifactName: $(packageArtifactName)
