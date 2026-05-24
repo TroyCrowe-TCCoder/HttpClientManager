@@ -4,12 +4,12 @@
 - This repository follows the class-library non-deployed-products model.
 - Keep repository-local deviations only in the root `standards/` folder when approved for this repository.
 - Add and maintain a repository-local validation entry point at `scripts/validate.ps1`.
-- Proceed through execution without pausing for step-by-step approval unless a real blocking question remains. Concise step updates are preferred, and approval should not be requested for each step as long as the work follows the agreed plan exactly.
+- Provide concise progress updates and continue execution without pausing for confirmation at every step in this repository unless there is a real blocker.
 - When asked to complete rollout work in this repository, check in changes, push the branch, and create the PR according to the repository standards rather than stopping at local edits.
 - Ensure PRs created by me have auto-complete selected.
 
 ## Repository Initialization Rules
-- The `feature/* -> dev` path must create the traceable package output promoted later through the `dev -> main` flow. For this repository's variation, the Build step creates the NuGet package artifact, and the Dev->Main flow delivers it only when ChangeDetection is true. Library deliverables are compiled into NuGet packages, as in this repository.
+- The `feature/* -> dev` path must create the traceable package output promoted later through the `dev -> main` flow. For this repository's variation, the Build step creates the NuGet package artifact, the downstream `dev` promotion flow creates the `dev -> main` PR, and the Main Release flow delivers the promoted artifact only when ChangeDetection is true. Library deliverables are compiled into NuGet packages, as in this repository.
 - Handle the feature->dev commit, push, PR creation, and select auto-merge when preparing the PR. The commit must use a descriptive title and description; the PR description must include a summary and a list of changes. Create the PR with Auto-Merge selected; nothing runs until approval.
 - Design the Feature->Dev and Dev->Main flow files as reusable templates with placeholders for required variables, so the flow can be generalized across repositories and app types. Feature->Dev remains the standard reusable flow, while database and WebApp/WebAPI repositories vary slightly in their app-specific delivery stages. Prefer app-type-specific pipeline/template variants rather than baking multiple app-type branches into shared files for a cleaner and lower-risk design.
 - The repository setting 'Set PRs to auto-complete on creation by default' is enabled.
@@ -26,6 +26,7 @@
 - Remove or replace outdated DevOps configuration first when it conflicts.
 - Use action-based pipeline file names as firm rules, not variants or optional alternatives, to enforce consistency. Standard names in this repository are `approve.yml`, `change-detection.yml`, `build.yml`, `test.yml`, `merge.yml`, `publish.yml`, and `carry-forward.yml`. Handle environment interchangeability through variables rather than environment-specific file names.
 - Apply the same code-check/change-detection pattern to the Main Release pipeline so it does not depend on a missing feature-to-dev build artifact.
+- The Main Release pipeline must only run ChangeDetection plus artifact delivery. It must not run Build, Test, or CarryForward.
 - Use single-word action-based pipeline file names where possible, and two-word action-based names only when necessary.
 - Build/Test/Merge/CarryForward each stop the pipeline and notify on failure.
 - Implement fail-fast behavior in the single autonomous pipeline run: if any section fails, downstream work must be skipped immediately, and the flow should go straight to `failure.yml`; the pipeline must not require a second run to complete the process. Approval should gate the single pipeline start, while PR auto-merge can remain selected, and the same run should complete the process.

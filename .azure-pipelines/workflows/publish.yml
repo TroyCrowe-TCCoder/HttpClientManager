@@ -1,10 +1,9 @@
-# Class Library — downstream promotion pipeline
-# Register this file as the downstream dev/main pipeline in Azure DevOps.
+# Class Library — main release pipeline
+# Register this file as the main release pipeline in Azure DevOps.
 
 trigger:
   branches:
     include:
-      - dev
       - main
 
 pr: none
@@ -18,7 +17,4 @@ stages:
 - template: ../templates/change-detection.yml
   parameters:
     mode: main
-- template: ../templates/build.yml
-- template: ../templates/test.yml
-- template: ../templates/carry-forward.yml
 - template: ../templates/publish.yml

@@ -5,15 +5,11 @@ stages:
   displayName: Publish
   dependsOn:
   - ChangeDetection
-  - Build
-  - Test
   condition: |
     and(
       eq(variables['Build.SourceBranch'], 'refs/heads/main'),
       eq(dependencies.ChangeDetection.result, 'Succeeded'),
-      eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'true'),
-      eq(dependencies.Build.result, 'Succeeded'),
-      eq(dependencies.Test.result, 'Succeeded')
+      eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'true')
     )
   jobs:
   - job: PublishPackage
@@ -24,10 +20,14 @@ stages:
     - checkout: none
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download package artifact from build stage
+      displayName: Download promoted package artifact from dev promotion pipeline
       inputs:
-        buildType: current
-        artifactName: $(buildPackageArtifactName)
+        buildType: specific
+        project: $(System.TeamProject)
+        definition: $(devPromotionPipelineId)
+        branchName: refs/heads/dev
+        buildVersionToDownload: latestFromBranch
+        artifactName: $(packageArtifactName)
         targetPath: $(Pipeline.Workspace)/nuget-drop
 
     - task: NuGetAuthenticate@1

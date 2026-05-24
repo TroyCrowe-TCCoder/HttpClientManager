@@ -8,6 +8,8 @@ variables:
   artifactsFeedName: 'CaptiveInnovations'
   artifactsFeedUrl: 'https://pkgs.dev.azure.com/tcrowe0170/_packaging/CaptiveInnovations/nuget/v3/index.json'
   devValidationPipelinePath: '.azure-pipelines/workflows/approve.yml'
+  devPromotionPipelinePath: '.azure-pipelines/workflows/carry-forward.yml'
+  devPromotionPipelineId: '19'
   mainReleasePipelinePath: '.azure-pipelines/workflows/publish.yml'
   failureNotificationEmail: 'tcrowe@singlesourcemanagement.com'
   smtpHost: ''
