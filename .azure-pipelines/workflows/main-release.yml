@@ -14,24 +14,54 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-# Download the NuGet artifact produced during the Feature=>Dev PR validation.
-# No rebuild — the package was already built, tested, and stored at that point.
+- checkout: self
+  fetchDepth: 2
+
+- task: PowerShell@2
+  displayName: Detect code changes in main merge
+  name: setvar
+  inputs:
+    pwsh: true
+    targetType: inline
+    script: |
+      $previousCommit = '$(Build.SourceVersion)^'
+      $changedFiles = git diff --name-only $previousCommit '$(Build.SourceVersion)'
+      Write-Host "Changed files:"
+      $changedFiles | ForEach-Object { Write-Host "  $_" }
+
+      $codeChanged = $changedFiles | Where-Object {
+        $_ -and
+        $_ -notmatch '\.md$' -and
+        $_ -notmatch '^docs/'
+      }
+
+      if ($codeChanged) {
+        Write-Host "Code changes detected. Package publish will continue."
+        Write-Host "##vso[task.setvariable variable=codeChanged]true"
+      } else {
+        Write-Host "Documentation-only changes detected. Skipping package publish."
+        Write-Host "##vso[task.setvariable variable=codeChanged]false"
+      }
+
+# Download the promoted NuGet artifact produced during the Feature=>Dev approval pipeline.
 - task: DownloadPipelineArtifact@2
   displayName: Download NuGet artifact from dev build
+  condition: eq(variables['codeChanged'], 'true')
   inputs:
     buildType: specific
     project: $(System.TeamProjectId)
-    definition: 13
-    buildVersionToDownload: latestFromBranch
-    branchName: refs/heads/dev
+    definition: $(validationPipelineId)
+    buildVersionToDownload: latest
     artifactName: $(packageArtifactName)
     targetPath: $(Pipeline.Workspace)/nuget-drop
 
 - task: NuGetAuthenticate@1
   displayName: Authenticate with Azure Artifacts
+  condition: eq(variables['codeChanged'], 'true')
 
 - task: DotNetCoreCLI@2
   displayName: Publish to CaptiveInnovations feed
+  condition: eq(variables['codeChanged'], 'true')
   inputs:
     command: push
     packagesToPush: $(Pipeline.Workspace)/nuget-drop/*.nupkg

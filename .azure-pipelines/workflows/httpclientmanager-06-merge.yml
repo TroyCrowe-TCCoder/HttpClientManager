@@ -1,0 +1,94 @@
+# Class Library — merge PR to dev
+# App type: Class Library (.NET NuGet package or shared assembly)
+# Environment: dev
+# Step 4 of 5 — Do NOT register this file as a pipeline. Loaded by httpclientmanager-dev.yml.
+# Always runs after ChangeDetection.
+# If code changes were detected, Build and Test must both succeed.
+# If documentation-only changes were detected, Build and Test are skipped and Merge proceeds.
+#
+# System.PullRequest.PullRequestId is populated automatically by ADO when the pipeline
+# is queued from within a PR via a branch policy Build Validation.
+# Completes the PR via the Azure DevOps REST API (squash merge).
+# The pipeline performs its own staged validation before this point, so the final
+# PR completion call bypasses branch policies to avoid a deadlock with the active
+# build validation policy that is executing this run.
+# CarryForward runs after this stage in the same pipeline run.
+
+stages:
+- stage: Merge
+  displayName: Merge PR to dev
+  dependsOn:
+  - ChangeDetection
+  - Build
+  - Test
+  condition: |
+    and(
+      eq(dependencies.ChangeDetection.result, 'Succeeded'),
+      or(
+        eq(stageDependencies.ChangeDetection.Detect.outputs['setvar.codeChanged'], 'false'),
+        and(
+          eq(stageDependencies.ChangeDetection.Detect.outputs['setvar.codeChanged'], 'true'),
+          eq(dependencies.Build.result, 'Succeeded'),
+          eq(dependencies.Test.result, 'Succeeded')
+        )
+      )
+    )
+  jobs:
+  - job: MergePR
+    displayName: Complete PR via REST API
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: none
+
+    - task: PowerShell@2
+      displayName: Complete pull request
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      inputs:
+        pwsh: true
+        targetType: inline
+        script: |
+          $org     = 'tcrowe0170'
+          $project = 'HttpClientManager'
+          $repoId  = 'HttpClientManager'
+          $prId    = '$(System.PullRequest.PullRequestId)'
+          $headers = @{
+            Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
+            'Content-Type' = 'application/json'
+          }
+          $baseUrl = "https://dev.azure.com/$org/$project/_apis/git/repositories/$repoId/pullRequests/$prId"
+
+          # Retrieve the current PR status
+          $pr = Invoke-RestMethod -Uri "${baseUrl}?api-version=7.1" -Headers $headers -Method Get
+
+          # If already completed (merged outside the pipeline), skip gracefully
+          if ($pr.status -eq 'completed') {
+            Write-Host "##[section]PR $prId is already completed (merged externally). Skipping merge step."
+            exit 0
+          }
+
+          $commitId = $pr.lastMergeSourceCommit.commitId
+          Write-Host "Completing PR $prId at commit $commitId"
+
+          $body = @{
+            status                = 'completed'
+            lastMergeSourceCommit = @{ commitId = $commitId }
+            completionOptions     = @{
+              mergeStrategy      = 'squash'
+              deleteSourceBranch = $false
+              bypassPolicy       = $true
+              bypassReason       = 'Approval pipeline completed staged validation before merge.'
+              transitionWorkItems = $true
+            }
+          } | ConvertTo-Json -Depth 5
+
+          try {
+            $result = Invoke-RestMethod -Uri "${baseUrl}?api-version=7.1" `
+              -Headers $headers -Method Patch -Body $body
+            Write-Host "PR $prId completed. Merge commit: $($result.lastMergeCommit.commitId)"
+          } catch {
+            $msg = $_.ErrorDetails.Message ?? $_.Exception.Message
+            Write-Error "Failed to complete PR $prId : $msg"
+            exit 1
+          }

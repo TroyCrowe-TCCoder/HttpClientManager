@@ -1,7 +1,8 @@
 # Class Library — failure notification
 # App type: Class Library (.NET NuGet package or shared assembly)
 # Environment: dev
-# Step 5 of 5 — Do NOT register this file as a pipeline. Loaded by httpclientmanager-dev.yml.
+# RETIRED — no longer loaded by httpclientmanager-dev.yml.
+# Superseded by the single approval-triggered run model (Step 5 was Merge in the new sequence).
 #
 # Runs only when a previous stage failed. Posts a comment to the pull request
 # identifying the failure, the build number, the repository and branch, and a
@@ -14,11 +15,8 @@ stages:
   - ChangeDetection
   - Build
   - Test
-  condition: |
-    and(
-      failed(),
-      eq(variables['Build.Reason'], 'PullRequest')
-    )
+  - Merge
+  condition: failed()
   jobs:
   - job: PostComment
     displayName: Post failure comment to PR

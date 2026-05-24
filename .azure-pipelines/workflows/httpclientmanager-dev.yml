@@ -1,29 +1,30 @@
-# Class Library — dev pipeline (PR gate + post-merge carry-forward)
+# Class Library — dev pipeline (approval-triggered single run)
 # App type: Class Library (.NET NuGet package or shared assembly)
 # Environment: dev
 # Register ONLY this file as a pipeline in Azure DevOps.
 #
-# PIPELINE SEQUENCE
-#   On PR targeting dev (Build.Reason == PullRequest):
-#     02-change-detection → 03-build+pack → 04-test → 05-notify-failure
+# TRIGGER MODEL
+#   This pipeline is registered as a branch policy Build Validation on 'dev'
+#   with "Trigger automatically" set to OFF.
+#   Flow:
+#     1. Developer creates a PR targeting dev — nothing runs
+#     2. Reviewer approves the PR
+#     3. The approved PR is queued from the PR context
+#     4. ADO populates System.PullRequest.PullRequestId automatically from the PR context
 #
-#   On CI push to dev after merge (Build.Reason != PullRequest):
-#     CarryForward → creates the dev→main promotion PR via auto-pr-chain template
-#
-# DEVIATION: Combining the PR gate and post-merge carry-forward into one registered
-# pipeline deviates from the single-responsibility file rule in
-# global-azure-devops-pipeline-standards.md. See standards/azure-devops-pipeline-standards.md
-# deviation DEV-002 for the approved rationale.
+# PIPELINE SEQUENCE (one run, five stages)
+#   Stage 1 — ChangeDetection : detect if code changed, set codeChanged flag
+#   Stage 2 — Build           : only if codeChanged == true
+#   Stage 3 — Test            : only if codeChanged == true AND Build passed
+#   Stage 4 — Merge           : always — gated on ChangeDetection succeeded;
+#                               if codeChanged was true, Build and Test must also have passed
+#   Stage 5 — CarryForward    : always if Merge succeeded;
+#                               re-publishes artifact only if codeChanged == true,
+#                               always creates the dev→main promotion PR
 
-trigger:
-  branches:
-    include:
-      - dev
+trigger: none
 
-pr:
-  branches:
-    include:
-      - dev
+pr: none
 
 name: $(Date:yyyyMMdd)$(Rev:.r)
 
@@ -31,60 +32,58 @@ variables:
 - template: ../variables/common.yml
 
 stages:
+
+# — Stage 1: ChangeDetection ——————————————————————————————————————————————————
 - template: httpclientmanager-02-change-detection.yml
+
+# — Stage 2-3: Build and Test (code changes only) ——————————————————————————————
 - template: httpclientmanager-03-build.yml
 - template: httpclientmanager-04-test.yml
-- template: httpclientmanager-05-notify-failure.yml
 
+# — Stage 4: Merge —————————————————————————————————————————————————————————————
+- template: httpclientmanager-06-merge.yml
+
+# — Stage 5: CarryForward ——————————————————————————————————————————————————————
 - stage: CarryForward
-  displayName: Create dev→main promotion PR
-  dependsOn: []
-  condition: |
-    and(
-      eq(variables['Build.Reason'], 'IndividualCI'),
-      eq(variables['Build.SourceBranch'], 'refs/heads/dev')
-    )
+  displayName: Carry forward to main
+  dependsOn:
+  - Merge
+  - ChangeDetection
+  condition: eq(dependencies.Merge.result, 'Succeeded')
   jobs:
 
-  # Re-publish the nuget-drop artifact from the prior PR validation run so that
-  # main-release can find it on this CI run. Uses buildVersionToDownload: latest
-  # which picks the most recently completed build of pipeline 13 regardless of
-  # source branch — at this point that is always the PR validation run that just
-  # passed and produced the artifact.
   - job: RepublishArtifact
-    displayName: Re-publish NuGet artifact from PR validation build
+    displayName: Re-publish NuGet artifact (code changes only)
     pool:
       vmImage: ubuntu-latest
+    variables:
+      codeChanged: $[ stageDependencies.ChangeDetection.Detect.outputs['setvar.codeChanged'] ]
+    condition: eq(variables['codeChanged'], 'true')
     steps:
     - checkout: none
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download nuget-drop from PR validation build
+      displayName: Download nuget-drop from this run
       inputs:
-        buildType: specific
-        project: $(System.TeamProjectId)
-        definition: 13
-        buildVersionToDownload: latest
-        artifactName: $(packageArtifactName)
+        buildType: current
+        artifactName: $(buildPackageArtifactName)
         targetPath: $(Pipeline.Workspace)/nuget-drop
 
-    - task: PublishBuildArtifacts@1
-      displayName: Re-publish nuget-drop on this CI run
+    - task: PublishPipelineArtifact@1
+      displayName: Re-publish nuget-drop on this run
       inputs:
-        PathtoPublish: $(Pipeline.Workspace)/nuget-drop
-        ArtifactName: $(packageArtifactName)
-        publishLocation: Container
+        targetPath: $(Pipeline.Workspace)/nuget-drop
+        artifactName: $(packageArtifactName)
 
   - job: PromotePR
-    displayName: Carry forward to main
-    dependsOn: RepublishArtifact
+    displayName: Create dev to main promotion PR
+    dependsOn:
+    - RepublishArtifact
+    condition: in(dependencies.RepublishArtifact.result, 'Succeeded', 'Skipped')
     pool:
       vmImage: ubuntu-latest
     steps:
-    - checkout: self
-      persistCredentials: true
-      clean: true
-
+    - checkout: none
     - template: ../templates/auto-pr-chain.yml
       parameters:
         adoOrg: 'tcrowe0170'

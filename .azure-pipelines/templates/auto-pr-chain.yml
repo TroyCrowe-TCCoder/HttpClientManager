@@ -1,9 +1,9 @@
 # auto-pr-chain.yml
 # Reusable template — creates the next carry-forward PR in the delivery chain.
 #
-# Usage: Call from a pipeline that triggers on CI push to 'dev' (or 'qa' when introduced).
-# The template looks up the most recently merged PR to the current branch, then creates
-# the next PR with the same title and description, and enables auto-complete.
+# Usage: Call from a PR-context pipeline after the current PR has been completed.
+# The template reads the current PR title and description, creates a fresh carry-forward
+# PR, and enables auto-complete.
 #
 # Parameters:
 #   adoOrg        — Azure DevOps organization name  (e.g. tcrowe0170)
@@ -41,6 +41,7 @@ steps:
         $repoId     = '${{ parameters.repositoryId }}'
         $source     = 'refs/heads/${{ parameters.sourceBranch }}'
         $target     = 'refs/heads/${{ parameters.targetBranch }}'
+        $currentPrId = '$(System.PullRequest.PullRequestId)'
         $baseUrl    = "https://dev.azure.com/$org/$project/_apis/git/repositories/$repoId"
         $apiVersion = 'api-version=7.1'
         $headers    = @{
@@ -48,69 +49,38 @@ steps:
           'Content-Type' = 'application/json'
         }
 
-        # ── Step 1: Find the most recently merged PR to the source branch ──────
-        $mergedUrl = "$baseUrl/pullrequests?searchCriteria.status=completed" +
-                     "&searchCriteria.targetRefName=$source&`$top=1&$apiVersion"
-        $mergedResponse = Invoke-RestMethod -Uri $mergedUrl -Headers $headers -Method Get
-
-        if ($mergedResponse.count -eq 0) {
-          Write-Host "##[warning]No completed PRs found targeting ${{ parameters.sourceBranch }}. Skipping carry-forward."
-          exit 0
+        if ([string]::IsNullOrWhiteSpace($currentPrId)) {
+          Write-Error 'System.PullRequest.PullRequestId was not provided. Carry-forward requires PR context.'
+          exit 1
         }
 
-        $mergedPr    = $mergedResponse.value[0]
-        $prTitle     = $mergedPr.title
-        $prDesc      = $mergedPr.description
-        $mergedPrId  = $mergedPr.pullRequestId
-        $mergedPrUrl = "https://dev.azure.com/$org/$project/_git/$repoId/pullrequest/$mergedPrId"
+        # ── Step 1: Read the completed PR that triggered this run ───────────────
+        $currentPrUrl = "$baseUrl/pullrequests/$currentPrId?$apiVersion"
+        $currentPr = Invoke-RestMethod -Uri $currentPrUrl -Headers $headers -Method Get
+        $prTitle   = $currentPr.title
+        $prDesc    = $currentPr.description
 
-        Write-Host "Source PR #$mergedPrId — '$prTitle'"
+        Write-Host "Source PR #$currentPrId — '$prTitle'"
 
-        # ── Step 2: Check for an existing open PR on the same source→target ────
+        # ── Step 2: Abandon any existing active PR on the same source→target ───
         $openUrl = "$baseUrl/pullrequests?searchCriteria.status=active" +
                    "&searchCriteria.sourceRefName=$source" +
                    "&searchCriteria.targetRefName=$target&$apiVersion"
         $openResponse = Invoke-RestMethod -Uri $openUrl -Headers $headers -Method Get
 
         if ($openResponse.count -gt 0) {
-          $existingId = $openResponse.value[0].pullRequestId
-          Write-Host "##[section]Open PR #$existingId already exists from ${{ parameters.sourceBranch }} → ${{ parameters.targetBranch }}. Skipping creation."
-          exit 0
-        }
-
-        # ── Step 3: Build a structured description ──────────────────────────────
-        # Fetch the commits on sourceBranch that are not yet on targetBranch
-        $commitsUrl      = "$baseUrl/commits?searchCriteria.itemVersion.version=${{ parameters.sourceBranch }}" +
-                           "&searchCriteria.compareVersion.version=${{ parameters.targetBranch }}" +
-                           "&`$top=50&$apiVersion"
-        $commitsResponse = Invoke-RestMethod -Uri $commitsUrl -Headers $headers -Method Get
-
-        $changeLines = @()
-        if ($commitsResponse.count -gt 0) {
-          foreach ($commit in $commitsResponse.value) {
-            # Use only the first line of the commit message as the change entry
-            $msg = ($commit.comment -split "`n")[0].Trim()
-            $sha = $commit.commitId.Substring(0, 7)
-            $changeLines += "- $msg ($sha)"
+          foreach ($openPr in $openResponse.value) {
+            $existingId = $openPr.pullRequestId
+            Write-Host "Abandoning existing PR #$existingId from ${{ parameters.sourceBranch }} → ${{ parameters.targetBranch }}."
+            $abandonBody = @{ status = 'abandoned' } | ConvertTo-Json -Depth 5
+            Invoke-RestMethod -Uri "$baseUrl/pullrequests/$existingId?$apiVersion" -Headers $headers -Method Patch -Body $abandonBody | Out-Null
           }
         }
 
-        $changeSection = if ($changeLines.Count -gt 0) {
-          "## Changes`n" + ($changeLines -join "`n")
-        } else {
-          "## Changes`n- No new commits detected beyond the merged PR."
-        }
-
-        $originSection  = "## Origin PR`nCarried forward from PR #$mergedPrId`: $mergedPrUrl"
-        $summarySection = if ($prDesc) { "## Summary`n$prDesc" } else { "" }
-
-        $fullDescription = (@($originSection, $changeSection, $summarySection) |
-                            Where-Object { $_ -ne "" }) -join "`n`n"
-
-        # ── Step 4: Create the carry-forward PR ─────────────────────────────────
+        # ── Step 3: Create the carry-forward PR ─────────────────────────────────
         $body = @{
           title         = $prTitle
-          description   = $fullDescription
+          description   = $prDesc
           sourceRefName = $source
           targetRefName = $target
         } | ConvertTo-Json -Depth 5
@@ -122,7 +92,7 @@ steps:
 
         Write-Host "##[section]Created PR #${newPrId}: $newPrUrl"
 
-        # ── Step 5: Enable auto-complete ─────────────────────────────────────────
+        # ── Step 4: Enable auto-complete ─────────────────────────────────────────
         # Retrieve the build service identity id from the PR creator field
         $creatorId = $createResponse.createdBy.id
 

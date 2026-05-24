@@ -1,7 +1,8 @@
 # Class Library — test
 # App type: Class Library (.NET NuGet package or shared assembly)
 # Environment: dev
-# Step 4 of 5 — Do NOT register this file as a pipeline. Loaded by httpclientmanager-dev.yml.
+# Step 3 of 5 — Do NOT register this file as a pipeline. Loaded by httpclientmanager-dev.yml.
+# Runs only when code changes are detected (codeChanged == true).
 # Variables (buildConfiguration, solutionPath) are resolved from common.yml
 # loaded by the httpclientmanager-dev.yml entry-point.
 
@@ -12,7 +13,7 @@ stages:
   condition: |
     and(
       succeeded('Build'),
-      eq(variables['Build.Reason'], 'PullRequest')
+      eq(stageDependencies.ChangeDetection.Detect.outputs['setvar.codeChanged'], 'true')
     )
   jobs:
   - job: RunTests

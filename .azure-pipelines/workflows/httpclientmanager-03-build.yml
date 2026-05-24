@@ -1,7 +1,8 @@
 # Class Library — build and pack
 # App type: Class Library (.NET NuGet package or shared assembly)
 # Environment: dev
-# Step 3 of 5 — Do NOT register this file as a pipeline. Loaded by httpclientmanager-dev.yml.
+# Step 2 of 5 — Do NOT register this file as a pipeline. Loaded by httpclientmanager-dev.yml.
+# Runs only when code changes are detected (codeChanged == true).
 #
 # Compiles the library and produces the NuGet package as the promoted output.
 # Publishing the artifact here makes it traceable to this commit, PR, and build run.
@@ -15,8 +16,7 @@ stages:
   condition: |
     and(
       succeeded('ChangeDetection'),
-      eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'true'),
-      eq(variables['Build.Reason'], 'PullRequest')
+      eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'true')
     )
   jobs:
   - job: BuildLibrary
@@ -55,9 +55,8 @@ stages:
         configuration: $(buildConfiguration)
         outputDir: $(Build.ArtifactStagingDirectory)/nuget
 
-    - task: PublishBuildArtifacts@1
-      displayName: Publish NuGet artifact
+    - task: PublishPipelineArtifact@1
+      displayName: Publish build NuGet artifact
       inputs:
-        PathtoPublish: $(Build.ArtifactStagingDirectory)/nuget
-        ArtifactName: nuget-drop
-        publishLocation: Container
+        targetPath: $(Build.ArtifactStagingDirectory)/nuget
+        artifactName: $(buildPackageArtifactName)
