@@ -1,0 +1,43 @@
+# Stage template — publish the package built on the current run to Azure Artifacts.
+
+stages:
+- stage: Publish
+  displayName: Publish
+  dependsOn:
+  - ChangeDetection
+  - Build
+  - Test
+  condition: |
+    and(
+      eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+      eq(dependencies.ChangeDetection.result, 'Succeeded'),
+      eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'true'),
+      eq(dependencies.Build.result, 'Succeeded'),
+      eq(dependencies.Test.result, 'Succeeded')
+    )
+  jobs:
+  - job: PublishPackage
+    displayName: Publish package to Azure Artifacts
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: none
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download package artifact from build stage
+      inputs:
+        buildType: current
+        artifactName: $(buildPackageArtifactName)
+        targetPath: $(Pipeline.Workspace)/nuget-drop
+
+    - task: NuGetAuthenticate@1
+      displayName: Authenticate with Azure Artifacts
+
+    - task: DotNetCoreCLI@2
+      displayName: Publish to $(artifactsFeedName)
+      inputs:
+        command: push
+        packagesToPush: $(Pipeline.Workspace)/nuget-drop/*.nupkg
+        nuGetFeedType: internal
+        publishVstsFeed: $(artifactsFeedName)
+        allowPackageConflicts: false

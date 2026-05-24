@@ -1,0 +1,85 @@
+# Stage template — complete an approved PR after validation succeeds.
+
+stages:
+- stage: Merge
+  displayName: Merge
+  dependsOn:
+  - ChangeDetection
+  - Build
+  - Test
+  condition: |
+    and(
+      eq(dependencies.ChangeDetection.result, 'Succeeded'),
+      or(
+        eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'false'),
+        and(
+          eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'true'),
+          eq(dependencies.Build.result, 'Succeeded'),
+          eq(dependencies.Test.result, 'Succeeded')
+        )
+      )
+    )
+  jobs:
+  - job: MergePR
+    displayName: Complete approved PR
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: none
+
+    - task: PowerShell@2
+      displayName: Complete pull request
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      inputs:
+        pwsh: true
+        targetType: inline
+        script: |
+          $org     = 'tcrowe0170'
+          $project = 'HttpClientManager'
+          $repoId  = 'HttpClientManager'
+          $prId    = '$(System.PullRequest.PullRequestId)'
+          if ([string]::IsNullOrWhiteSpace($prId) -or $prId -like '*$(*)*') {
+            $prId = '$(prContextPullRequestId)'
+          }
+
+          if ([string]::IsNullOrWhiteSpace($prId) -or $prId -like '*$(*)*') {
+            Write-Error 'No pull request id was provided. Merge requires PR context.'
+            exit 1
+          }
+
+          $headers = @{
+            Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
+            'Content-Type' = 'application/json'
+          }
+          $baseUrl = "https://dev.azure.com/$org/$project/_apis/git/repositories/$repoId/pullRequests/$prId"
+          $pr = Invoke-RestMethod -Uri "${baseUrl}?api-version=7.1" -Headers $headers -Method Get
+
+          if ($pr.status -eq 'completed') {
+            Write-Host "##[section]PR $prId is already completed. Skipping merge step."
+            exit 0
+          }
+
+          $commitId = $pr.lastMergeSourceCommit.commitId
+          Write-Host "Completing PR $prId at commit $commitId"
+
+          $body = @{
+            status                = 'completed'
+            lastMergeSourceCommit = @{ commitId = $commitId }
+            completionOptions     = @{
+              mergeStrategy       = 'squash'
+              deleteSourceBranch  = $false
+              bypassPolicy        = $true
+              bypassReason        = 'Approval pipeline completed staged validation before merge.'
+              transitionWorkItems = $true
+            }
+          } | ConvertTo-Json -Depth 5
+
+          try {
+            $result = Invoke-RestMethod -Uri "${baseUrl}?api-version=7.1" -Headers $headers -Method Patch -Body $body
+            Write-Host "PR $prId completed. Merge commit: $($result.lastMergeCommit.commitId)"
+          } catch {
+            $msg = $_.ErrorDetails.Message ?? $_.Exception.Message
+            Write-Error "Failed to complete PR $prId : $msg"
+            exit 1
+          }

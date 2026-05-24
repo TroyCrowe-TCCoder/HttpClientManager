@@ -1,0 +1,74 @@
+# Stage template — detect whether a run includes code changes.
+
+parameters:
+- name: mode
+  type: string
+  default: pr
+
+stages:
+- stage: ChangeDetection
+  displayName: ChangeDetection
+  jobs:
+  - job: Detect
+    displayName: Detect code changes
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
+      fetchDepth: 0
+
+    - task: PowerShell@2
+      displayName: Evaluate changed files
+      name: setvar
+      inputs:
+        pwsh: true
+        targetType: inline
+        script: |
+          $mode = '${{ parameters.mode }}'
+
+          if ($mode -eq 'main') {
+            $previousCommit = '$(Build.SourceVersion)^'
+            git rev-parse $previousCommit 2>$null | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "No previous commit available. Treating as code changes."
+              Write-Host "##vso[task.setvariable variable=codeChanged;isOutput=true]true"
+              exit 0
+            }
+
+            $changedFiles = git diff --name-only $previousCommit '$(Build.SourceVersion)'
+          } else {
+            $targetBranch = '$(System.PullRequest.TargetBranch)'
+            if ([string]::IsNullOrWhiteSpace($targetBranch) -or $targetBranch -like '*$(*)*') {
+              $targetBranch = '$(prContextTargetBranch)'
+            }
+
+            if ([string]::IsNullOrWhiteSpace($targetBranch) -or $targetBranch -like '*$(*)*') {
+              Write-Host "No PR target branch detected. Treating as code changes."
+              Write-Host "##vso[task.setvariable variable=codeChanged;isOutput=true]true"
+              exit 0
+            }
+
+            $targetBranch = $targetBranch -replace '^refs/heads/', ''
+            git fetch origin $targetBranch --depth=1 2>&1 | Out-Null
+            $changedFiles = git diff --name-only "origin/$targetBranch" HEAD
+          }
+
+          Write-Host "Changed files:"
+          $changedFiles | ForEach-Object { Write-Host "  $_" }
+
+          $codeChanged = $changedFiles | Where-Object {
+            $_ -and
+            $_ -notmatch '\.md$' -and
+            $_ -notmatch '^docs/' -and
+            $_ -notmatch '^\.azure-pipelines/' -and
+            $_ -notmatch '^standards/' -and
+            $_ -notmatch '^\.github/copilot-instructions\.md$'
+          }
+
+          if ($codeChanged) {
+            Write-Host "Code changes detected. Build and test will run."
+            Write-Host "##vso[task.setvariable variable=codeChanged;isOutput=true]true"
+          } else {
+            Write-Host "Documentation-only changes detected. Skipping downstream code actions."
+            Write-Host "##vso[task.setvariable variable=codeChanged;isOutput=true]false"
+          }

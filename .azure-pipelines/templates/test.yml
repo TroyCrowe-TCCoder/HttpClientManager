@@ -1,0 +1,38 @@
+# Stage template — run unit tests after a successful build when code changes exist.
+
+stages:
+- stage: Test
+  displayName: Test
+  dependsOn: Build
+  condition: |
+    and(
+      succeeded('Build'),
+      eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'true')
+    )
+  jobs:
+  - job: RunTests
+    displayName: Run unit tests
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
+
+    - task: UseDotNet@2
+      displayName: Use .NET SDK
+      inputs:
+        packageType: sdk
+        version: 10.0.x
+        includePreviewVersions: true
+
+    - task: DotNetCoreCLI@2
+      displayName: Restore packages
+      inputs:
+        command: restore
+        projects: $(solutionPath)
+
+    - task: DotNetCoreCLI@2
+      displayName: Run tests
+      inputs:
+        command: test
+        projects: $(solutionPath)
+        arguments: --configuration $(buildConfiguration) --verbosity normal

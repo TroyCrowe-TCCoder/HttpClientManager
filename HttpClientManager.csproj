@@ -34,10 +34,15 @@
 
   <!-- Include README.md at the package root so NuGet.org and VS display it -->
   <ItemGroup>
-    <None Include=".azure-pipelines\workflows\httpclientmanager-02-change-detection.yml" />
-    <None Include=".azure-pipelines\workflows\httpclientmanager-03-build.yml" />
-    <None Include=".azure-pipelines\workflows\httpclientmanager-04-test.yml" />
-    <None Include=".azure-pipelines\workflows\httpclientmanager-05-notify-failure.yml" />
+    <None Include=".azure-pipelines\templates\build.yml" />
+    <None Include=".azure-pipelines\templates\carry-forward.yml" />
+    <None Include=".azure-pipelines\templates\change-detection.yml" />
+    <None Include=".azure-pipelines\templates\failure.yml" />
+    <None Include=".azure-pipelines\templates\merge.yml" />
+    <None Include=".azure-pipelines\templates\publish.yml" />
+    <None Include=".azure-pipelines\templates\test.yml" />
+    <None Include=".azure-pipelines\workflows\approve.yml" />
+    <None Include=".azure-pipelines\workflows\publish.yml" />
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>

@@ -1,0 +1,20 @@
+# Class Library — approval pipeline
+# Register this file as the feature to dev validation pipeline in Azure DevOps.
+# PR creation does nothing. Approval automation queues this pipeline once the PR is approved.
+
+trigger: none
+
+pr: none
+
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+variables:
+- template: ../variables/common.yml
+
+stages:
+- template: ../templates/change-detection.yml
+  parameters:
+    mode: pr
+- template: ../templates/build.yml
+- template: ../templates/test.yml
+- template: ../templates/failure.yml

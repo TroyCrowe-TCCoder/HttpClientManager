@@ -1,0 +1,24 @@
+# Class Library — downstream promotion pipeline
+# Register this file as the downstream dev/main pipeline in Azure DevOps.
+
+trigger:
+  branches:
+    include:
+      - dev
+      - main
+
+pr: none
+
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+variables:
+- template: ../variables/common.yml
+
+stages:
+- template: ../templates/change-detection.yml
+  parameters:
+    mode: main
+- template: ../templates/build.yml
+- template: ../templates/test.yml
+- template: ../templates/carry-forward.yml
+- template: ../templates/publish.yml
