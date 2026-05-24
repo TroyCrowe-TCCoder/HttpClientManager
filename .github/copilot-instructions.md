@@ -26,7 +26,7 @@
 - Remove or replace outdated DevOps configuration first when it conflicts.
 - Use action-based pipeline file names as firm rules, not variants or optional alternatives, to enforce consistency. Standard names in this repository are `approve.yml`, `change-detection.yml`, `build.yml`, `test.yml`, `merge.yml`, `publish.yml`, and `carry-forward.yml`. Handle environment interchangeability through variables rather than environment-specific file names.
 - Apply the same code-check/change-detection pattern to the Main Release pipeline so it does not depend on a missing feature-to-dev build artifact.
-- The Main Release pipeline must only run ChangeDetection plus artifact delivery. It must not run Build, Test, or CarryForward.
+- The Main Release pipeline must only perform ChangeDetection and deliver artifacts when ChangeDetection is true; it must not run Build, Test, or CarryForward.
 - Use single-word action-based pipeline file names where possible, and two-word action-based names only when necessary.
 - Build/Test/Merge/CarryForward each stop the pipeline and notify on failure.
 - Implement fail-fast behavior in the single autonomous pipeline run: if any section fails, downstream work must be skipped immediately, and the flow should go straight to `failure.yml`; the pipeline must not require a second run to complete the process. Approval should gate the single pipeline start, while PR auto-merge can remain selected, and the same run should complete the process.

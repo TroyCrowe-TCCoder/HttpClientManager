@@ -20,3 +20,10 @@ stages:
 - template: ../templates/build.yml
 - template: ../templates/test.yml
 - template: ../templates/carry-forward.yml
+- template: ../templates/failure.yml
+  parameters:
+    dependsOn:
+    - ChangeDetection
+    - Build
+    - Test
+    - CarryForward

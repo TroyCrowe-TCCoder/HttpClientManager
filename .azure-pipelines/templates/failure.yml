@@ -1,12 +1,17 @@
-# Stage template — notify when the approval pipeline fails.
+# Stage template — notify when a pipeline fails.
+
+parameters:
+- name: dependsOn
+  type: object
+  default:
+  - ChangeDetection
+  - Build
+  - Test
 
 stages:
 - stage: Failure
   displayName: Failure
-  dependsOn:
-  - ChangeDetection
-  - Build
-  - Test
+  dependsOn: ${{ parameters.dependsOn }}
   condition: failed()
   jobs:
   - job: NotifyFailure

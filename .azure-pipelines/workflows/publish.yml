@@ -18,3 +18,8 @@ stages:
   parameters:
     mode: main
 - template: ../templates/publish.yml
+- template: ../templates/failure.yml
+  parameters:
+    dependsOn:
+    - ChangeDetection
+    - Publish

@@ -18,3 +18,8 @@ stages:
 - template: ../templates/build.yml
 - template: ../templates/test.yml
 - template: ../templates/failure.yml
+  parameters:
+    dependsOn:
+    - ChangeDetection
+    - Build
+    - Test

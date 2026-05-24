@@ -42,6 +42,7 @@
     <None Include=".azure-pipelines\templates\publish.yml" />
     <None Include=".azure-pipelines\templates\test.yml" />
     <None Include=".azure-pipelines\workflows\approve.yml" />
+    <None Include=".azure-pipelines\workflows\carry-forward.yml" />
     <None Include=".azure-pipelines\workflows\publish.yml" />
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
