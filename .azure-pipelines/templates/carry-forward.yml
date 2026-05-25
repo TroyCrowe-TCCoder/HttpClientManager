@@ -1,147 +1,146 @@
 # Stage template — republish the promoted artifact and create the next PR in the chain.
 
+parameters:
+- name: dependsOn
+  type: object
+  default:
+  - Build
+- name: stageCondition
+  type: string
+  default: succeeded()
+- name: republishArtifact
+  type: boolean
+  default: true
+- name: createPullRequest
+  type: boolean
+  default: true
+
 stages:
 - stage: CarryForward
   displayName: CarryForward
-  dependsOn:
-  - ChangeDetection
-  - Build
-  - Test
-  condition: |
-    and(
-      eq(dependencies.ChangeDetection.result, 'Succeeded'),
-      eq(variables['Build.SourceBranch'], 'refs/heads/dev'),
-      or(
-        eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'false'),
-        and(
-          eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'true'),
-          eq(dependencies.Build.result, 'Succeeded'),
-          eq(dependencies.Test.result, 'Succeeded')
-        )
-      )
-    )
+  dependsOn: ${{ parameters.dependsOn }}
+  condition: ${{ parameters.stageCondition }}
+  variables:
+    artifactsAvailable: $[ stageDependencies.Build.SetBuildState.outputs['setvar.artifactsAvailable'] ]
   jobs:
-  - job: RepublishArtifact
-    displayName: Republish package artifact
-    pool:
-      vmImage: ubuntu-latest
-    variables:
-      codeChanged: $[ dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'] ]
-    condition: eq(variables['codeChanged'], 'true')
-    steps:
-    - checkout: none
+  - ${{ if eq(parameters.republishArtifact, true) }}:
+    - job: RepublishArtifact
+      displayName: Republish package artifact
+      pool:
+        vmImage: ubuntu-latest
+      condition: eq(variables['artifactsAvailable'], 'true')
+      steps:
+      - checkout: none
 
-    - task: DownloadPipelineArtifact@2
-      displayName: Download package artifact from build stage
-      inputs:
-        buildType: current
-        artifactName: $(buildPackageArtifactName)
-        targetPath: $(Pipeline.Workspace)/nuget-drop
+      - task: DownloadPipelineArtifact@2
+        displayName: Download package artifact from build stage
+        inputs:
+          buildType: current
+          artifactName: $(buildPackageArtifactName)
+          targetPath: $(Pipeline.Workspace)/nuget-drop
 
-    - task: PublishPipelineArtifact@1
-      displayName: Publish promoted package artifact
-      inputs:
-        targetPath: $(Pipeline.Workspace)/nuget-drop
-        artifactName: $(packageArtifactName)
+      - task: PublishPipelineArtifact@1
+        displayName: Publish promoted package artifact
+        inputs:
+          targetPath: $(Pipeline.Workspace)/nuget-drop
+          artifactName: $(packageArtifactName)
 
-  - job: PromotePR
-    displayName: Create dev to main PR
-    dependsOn:
-    - RepublishArtifact
-    condition: in(dependencies.RepublishArtifact.result, 'Succeeded', 'Skipped')
-    pool:
-      vmImage: ubuntu-latest
-    steps:
-    - checkout: none
+  - ${{ if eq(parameters.createPullRequest, true) }}:
+    - job: PromotePR
+      displayName: Create dev to main PR
+      ${{ if eq(parameters.republishArtifact, true) }}:
+        dependsOn:
+        - RepublishArtifact
+        condition: in(dependencies.RepublishArtifact.result, 'Succeeded', 'Skipped')
+      pool:
+        vmImage: ubuntu-latest
+      steps:
+      - checkout: none
 
-    - task: PowerShell@2
-      displayName: Create carry-forward PR
-      env:
-        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-      inputs:
-        pwsh: true
-        targetType: inline
-        script: |
-          $ErrorActionPreference = 'Stop'
+      - task: PowerShell@2
+        displayName: Create carry-forward PR
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+        inputs:
+          pwsh: true
+          targetType: inline
+          script: |
+            $ErrorActionPreference = 'Stop'
 
-          $org         = 'tcrowe0170'
-          $project     = 'HttpClientManager'
-          $repoId      = 'HttpClientManager'
-          $source      = 'refs/heads/dev'
-          $target      = 'refs/heads/$(devNextBranch)'
-          $sourceVersion = '$(Build.SourceVersion)'
-          $sourceMessage = '$(Build.SourceVersionMessage)'
-          if ([string]::IsNullOrWhiteSpace($sourceMessage) -or $sourceMessage -like '*$(*)*') {
-            $sourceMessage = 'Promote dev to main'
-          }
-
-          $baseUrl    = "https://dev.azure.com/$org/$project/_apis/git/repositories/$repoId"
-          $apiVersion = 'api-version=7.1'
-          $headers    = @{
-            Authorization  = "Bearer $env:SYSTEM_ACCESSTOKEN"
-            'Content-Type' = 'application/json'
-          }
-
-          $prTitle = 'Promote dev to main'
-          $prDescLines = @(
-            'Summary',
-            '- promote the merged dev state to main',
-            '',
-            'Details',
-            "- source branch: dev",
-            "- target branch: $(devNextBranch)",
-            "- source commit: $sourceVersion",
-            "- source message: $sourceMessage"
-          )
-          $prDesc = [string]::Join([Environment]::NewLine, $prDescLines)
-
-          $openUrl = "$baseUrl/pullrequests?searchCriteria.status=active" +
-                     "&searchCriteria.sourceRefName=$source" +
-                     "&searchCriteria.targetRefName=$target&$apiVersion"
-          $openResponse = Invoke-RestMethod -Uri $openUrl -Headers $headers -Method Get
-
-          if ($openResponse.count -gt 0) {
-            foreach ($openPr in $openResponse.value) {
-              $existingId = $openPr.pullRequestId
-              Write-Host "Abandoning existing PR #$existingId from dev → $(devNextBranch)."
-              $abandonBody = @{ status = 'abandoned' } | ConvertTo-Json -Depth 5
-              Invoke-RestMethod -Uri "$baseUrl/pullrequests/$existingId?$apiVersion" -Headers $headers -Method Patch -Body $abandonBody | Out-Null
+            $org         = 'tcrowe0170'
+            $project     = 'HttpClientManager'
+            $repoId      = 'HttpClientManager'
+            $source      = 'refs/heads/dev'
+            $target      = 'refs/heads/$(devNextBranch)'
+            $currentPrId = '$(System.PullRequest.PullRequestId)'
+            if ([string]::IsNullOrWhiteSpace($currentPrId) -or $currentPrId -like '*$(*)*') {
+              $currentPrId = '$(prContextPullRequestId)'
             }
-          }
 
-          $body = @{
-            title         = $prTitle
-            description   = $prDesc
-            sourceRefName = $source
-            targetRefName = $target
-          } | ConvertTo-Json -Depth 5
-
-          $createUrl      = "$baseUrl/pullrequests?$apiVersion"
-          $createResponse = Invoke-RestMethod -Uri $createUrl -Headers $headers -Method Post -Body $body
-          $newPrId        = $createResponse.pullRequestId
-          $newPrUrl       = "https://dev.azure.com/$org/$project/_git/$repoId/pullrequest/$newPrId"
-
-          Write-Host "##[section]Created PR #${newPrId}: $newPrUrl"
-
-          $creatorId = $createResponse.createdBy.id
-          $acBody = @{
-            autoCompleteSetBy = @{ id = $creatorId }
-            completionOptions = @{
-              mergeStrategy       = 'squash'
-              deleteSourceBranch  = $false
-              bypassPolicy        = $false
-              bypassReason        = ''
-              transitionWorkItems = $false
-              squashMerge         = $true
+            $baseUrl    = "https://dev.azure.com/$org/$project/_apis/git/repositories/$repoId"
+            $apiVersion = 'api-version=7.1'
+            $headers    = @{
+              Authorization  = "Bearer $env:SYSTEM_ACCESSTOKEN"
+              'Content-Type' = 'application/json'
             }
-          } | ConvertTo-Json -Depth 5
 
-          $updateUrl = "$baseUrl/pullrequests/$newPrId?$apiVersion"
-          try {
-            Invoke-RestMethod -Uri $updateUrl -Headers $headers -Method Patch -Body $acBody | Out-Null
-            Write-Host "Auto-complete enabled on PR #$newPrId."
-          } catch {
-            Write-Host "##[warning]Auto-complete could not be set on PR #$newPrId (policy gates pending): $($_.Exception.Message)"
-          }
+            if ([string]::IsNullOrWhiteSpace($currentPrId) -or $currentPrId -like '*$(*)*') {
+              Write-Error 'A pull request id was not provided. Carry-forward requires PR context.'
+              exit 1
+            }
 
-          Write-Host "Carry-forward PR ready: dev → $(devNextBranch) | $newPrUrl"
+            $currentPrUrl = "$baseUrl/pullrequests/$currentPrId?$apiVersion"
+            $currentPr = Invoke-RestMethod -Uri $currentPrUrl -Headers $headers -Method Get
+            $prTitle   = $currentPr.title
+            $prDesc    = $currentPr.description
+
+            $openUrl = "$baseUrl/pullrequests?searchCriteria.status=active" +
+                       "&searchCriteria.sourceRefName=$source" +
+                       "&searchCriteria.targetRefName=$target&$apiVersion"
+            $openResponse = Invoke-RestMethod -Uri $openUrl -Headers $headers -Method Get
+
+            if ($openResponse.count -gt 0) {
+              foreach ($openPr in $openResponse.value) {
+                $existingId = $openPr.pullRequestId
+                Write-Host "Abandoning existing PR #$existingId from dev → $(devNextBranch)."
+                $abandonBody = @{ status = 'abandoned' } | ConvertTo-Json -Depth 5
+                Invoke-RestMethod -Uri "$baseUrl/pullrequests/$existingId?$apiVersion" -Headers $headers -Method Patch -Body $abandonBody | Out-Null
+              }
+            }
+
+            $body = @{
+              title         = $prTitle
+              description   = $prDesc
+              sourceRefName = $source
+              targetRefName = $target
+            } | ConvertTo-Json -Depth 5
+
+            $createUrl      = "$baseUrl/pullrequests?$apiVersion"
+            $createResponse = Invoke-RestMethod -Uri $createUrl -Headers $headers -Method Post -Body $body
+            $newPrId        = $createResponse.pullRequestId
+            $newPrUrl       = "https://dev.azure.com/$org/$project/_git/$repoId/pullrequest/$newPrId"
+
+            Write-Host "##[section]Created PR #${newPrId}: $newPrUrl"
+
+            $creatorId = $createResponse.createdBy.id
+            $acBody = @{
+              autoCompleteSetBy = @{ id = $creatorId }
+              completionOptions = @{
+                mergeStrategy       = 'squash'
+                deleteSourceBranch  = $false
+                bypassPolicy        = $false
+                bypassReason        = ''
+                transitionWorkItems = $false
+                squashMerge         = $true
+              }
+            } | ConvertTo-Json -Depth 5
+
+            $updateUrl = "$baseUrl/pullrequests/$newPrId?$apiVersion"
+            try {
+              Invoke-RestMethod -Uri $updateUrl -Headers $headers -Method Patch -Body $acBody | Out-Null
+              Write-Host "Auto-complete enabled on PR #$newPrId."
+            } catch {
+              Write-Host "##[warning]Auto-complete could not be set on PR #$newPrId (policy gates pending): $($_.Exception.Message)"
+            }
+
+            Write-Host "Carry-forward PR ready: dev → $(devNextBranch) | $newPrUrl"

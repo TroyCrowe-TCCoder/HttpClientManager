@@ -22,9 +22,11 @@ Run the repository-local validation entry point before creating or updating a pu
 
 pwsh ./scripts/validate.ps1 -Pack
 
-Pipeline validation note: documentation-only changes should keep ChangeDetection false so Build and Test are skipped while PR completion can still proceed after approval.
+Pipeline validation note: documentation-only changes should keep ChangeDetection false so Build and Test are skipped while the approved PR can still complete.
 
-This repository follows the class-library promotion model. The validation entry point restores, builds, optionally runs tests when test projects exist, and produces the traceable package output used for promotion.
+Non-code validation note: README-only updates are used to confirm the non-code PR path skips Build and Test while still allowing merge and carry-forward to continue.
+
+This repository follows the class-library promotion model. The validation entry point restores, builds, optionally runs tests when test projects exist, and produces the traceable package output used for promotion when code-significant changes are present.
 
 ---
 
@@ -65,8 +67,8 @@ This repository follows the class-library promotion model. The validation entry 
 
 | Requirement | Version |
 |---|---|
-| .NET | 9.0 |
-| C# | 13.0 |
+| .NET | 10.0 |
+| C# | 14.0 |
 | `Microsoft.Extensions.Http` | 10.x |
 
 ---

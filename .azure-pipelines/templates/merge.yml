@@ -7,18 +7,10 @@ stages:
   - ChangeDetection
   - Build
   - Test
-  condition: |
-    and(
-      eq(dependencies.ChangeDetection.result, 'Succeeded'),
-      or(
-        eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'false'),
-        and(
-          eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'true'),
-          eq(dependencies.Build.result, 'Succeeded'),
-          eq(dependencies.Test.result, 'Succeeded')
-        )
-      )
-    )
+  variables:
+    codeChanged: $[ stageDependencies.ChangeDetection.Detect.outputs['setvar.codeChanged'] ]
+    buildSucceeded: $[ stageDependencies.Build.SetBuildState.outputs['setvar.buildSucceeded'] ]
+    testSucceeded: $[ stageDependencies.Test.SetTestState.outputs['setvar.testSucceeded'] ]
   jobs:
   - job: MergePR
     displayName: Complete approved PR
@@ -35,6 +27,15 @@ stages:
         pwsh: true
         targetType: inline
         script: |
+          $codeChanged = '$(codeChanged)'
+          $buildSucceeded = '$(buildSucceeded)'
+          $testSucceeded = '$(testSucceeded)'
+
+          if ($codeChanged -eq 'true' -and ($buildSucceeded -ne 'true' -or $testSucceeded -ne 'true')) {
+            Write-Error "Merge is blocked because code changes require successful Build and Test. Build=$buildSucceeded Test=$testSucceeded"
+            exit 1
+          }
+
           $org     = 'tcrowe0170'
           $project = 'HttpClientManager'
           $repoId  = 'HttpClientManager'

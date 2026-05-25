@@ -17,9 +17,20 @@ stages:
     mode: pr
 - template: ../templates/build.yml
 - template: ../templates/test.yml
+- template: ../templates/merge.yml
+- template: ../templates/carry-forward.yml
+  parameters:
+    dependsOn:
+    - Build
+    - Merge
+    stageCondition: eq(dependencies.Merge.result, 'Succeeded')
+    republishArtifact: false
+    createPullRequest: true
 - template: ../templates/failure.yml
   parameters:
     dependsOn:
     - ChangeDetection
     - Build
     - Test
+    - Merge
+    - CarryForward

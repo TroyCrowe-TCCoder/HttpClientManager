@@ -22,8 +22,8 @@ Thank you for contributing to **HttpClientManager**. This document describes the
 
 | Tool | Version |
 |---|---|
-| .NET SDK | 9.0 |
-| C# | 13.0 |
+| .NET SDK | 10.0 |
+| C# | 14.0 |
 | IDE | Visual Studio 2026+ or VS Code with C# Dev Kit |
 
 **Setup steps:**
@@ -70,7 +70,7 @@ HttpClientManager/
 
 ## Coding Standards
 
-This project targets **.NET 9 / C# 13** with `<Nullable>enable</Nullable>` and `<ImplicitUsings>enable</ImplicitUsings>`.
+This project targets **.NET 10 / C# 14** with `<Nullable>enable</Nullable>` and `<ImplicitUsings>enable</ImplicitUsings>`.
 
 ### Naming
 
@@ -129,20 +129,20 @@ All changes must adhere to SOLID principles. Reviewers will reject contributions
 
 ## Branch Strategy
 
-This repository uses a **feature branch workflow** against `master`.
+This repository uses a **feature branch workflow** through `dev` and `main`.
 
 | Branch type | Pattern | Purpose |
 |---|---|---|
-| Feature | `feature/<short-description>` | New functionality |
+| Feature | `feature/<short-description>` | New functionality promoted through `dev` |
 | Bug fix | `fix/<short-description>` | Corrects a defect |
 | Refactor | `refactor/<short-description>` | No behaviour change |
 | Documentation | `docs/<short-description>` | Docs only |
 | Release | `release/<semver>` | Release preparation |
 
 **Rules:**
-- Branch off `master` for all work
+- Branch off `dev` for normal work unless a maintainer directs otherwise
 - Keep branches short-lived (ideally < 5 business days)
-- Rebase onto `master` before raising a PR — no merge commits in feature branches
+- Rebase onto `dev` before raising a PR — no merge commits in feature branches
 - Delete branches after merge
 
 ---
@@ -185,12 +185,12 @@ docs(README): add named client registration example
 
 ## Pull Request Process
 
-1. **Open a PR** against `master` with a clear title using the Conventional Commits format
+1. **Open a PR** against `dev` with a clear title using the Conventional Commits format
 2. **Link the work item** in the PR description (Azure DevOps `AB#<id>`)
 3. Fill in the PR template (below) completely
-4. Ensure the build pipeline passes before requesting review
+4. Ensure the validation pipeline passes before requesting review
 5. At least **one approving review** is required before merge
-6. The PR author merges after approval — do not merge someone else's PR without permission
+6. Approved `feature/* -> dev` PRs are completed by the validation pipeline after required checks succeed
 
 ### PR Description Template
 
@@ -251,5 +251,5 @@ A change is considered **done** when all of the following are true:
 - [ ] New tests written and passing for changed/added behaviour
 - [ ] Public API has XML doc comments
 - [ ] `CHANGELOG.md` updated under `[Unreleased]`
-- [ ] PR approved and merged to `master`
+- [ ] PR approved and merged to `dev` or `main`, as applicable
 - [ ] Feature branch deleted

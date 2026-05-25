@@ -20,6 +20,19 @@ stages:
 - template: ../templates/build.yml
 - template: ../templates/test.yml
 - template: ../templates/carry-forward.yml
+  parameters:
+    dependsOn:
+    - ChangeDetection
+    - Build
+    - Test
+    stageCondition: |
+      and(
+        eq(variables['Build.SourceBranch'], 'refs/heads/dev'),
+        eq(dependencies.Build.result, 'Succeeded'),
+        eq(dependencies.Test.result, 'Succeeded')
+      )
+    republishArtifact: true
+    createPullRequest: false
 - template: ../templates/failure.yml
   parameters:
     dependsOn:
