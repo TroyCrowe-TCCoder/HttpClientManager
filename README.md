@@ -22,6 +22,8 @@ Run the repository-local validation entry point before creating or updating a pu
 
 pwsh ./scripts/validate.ps1 -Pack
 
+Pipeline validation note: documentation-only changes should keep ChangeDetection false so Build and Test are skipped while PR completion can still proceed after approval.
+
 This repository follows the class-library promotion model. The validation entry point restores, builds, optionally runs tests when test projects exist, and produces the traceable package output used for promotion.
 
 ---

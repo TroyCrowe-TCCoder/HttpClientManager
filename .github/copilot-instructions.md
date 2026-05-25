@@ -8,6 +8,10 @@
 - When asked to complete rollout work in this repository, check in changes, push the branch, and create the PR according to the repository standards rather than stopping at local edits.
 - Ensure PRs created by me have auto-complete selected.
 
+## Change Detection Rules
+- ChangeDetection should default to true and only switch to false when no code changes are found; Build and Test must then skip when false, while merge/completion should still proceed either way.
+- For this repository's ChangeDetection, prioritize C#, CSS-family files, JavaScript/TypeScript variants (including ReactJS and `.rxjs`), and optionally Python; exclude VB, J#, C, C++, and PHP-related file types. Workflow/docs/instruction changes should not count as code changes.
+
 ## Repository Initialization Rules
 - The `feature/* -> dev` path must create the traceable package output promoted later through the `dev -> main` flow. For this repository's variation, the Build step creates the NuGet package artifact, the downstream `dev` promotion flow creates the `dev -> main` PR, and the Main Release flow delivers the promoted artifact only when ChangeDetection is true. Library deliverables are compiled into NuGet packages, as in this repository.
 - Handle the feature->dev commit, push, PR creation, and select auto-merge when preparing the PR. The commit must use a descriptive title and description; the PR description must include a summary and a list of changes. Create the PR with Auto-Merge selected; nothing runs until approval.
@@ -15,7 +19,7 @@
 - The repository setting 'Set PRs to auto-complete on creation by default' is enabled.
 
 ## Azure DevOps Flow Rules
-- Build runs only when ChangeDetection is true.
+- Build runs only when ChangeDetection is true; if ChangeDetection is false, Build and Test must not run. Treat any run that builds/tests after non-code changes as a defect to investigate immediately.
 - Test runs only when ChangeDetection is true and Build succeeded.
 - Azure DevOps branch policy and auto-complete own PR merge completion after required validation succeeds.
 - PR approval should start the Azure DevOps flow; ChangeDetection returns false for documentation-only changes and true for code changes.

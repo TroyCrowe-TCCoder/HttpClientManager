@@ -57,12 +57,14 @@ stages:
           $changedFiles | ForEach-Object { Write-Host "  $_" }
 
           $codeChanged = $changedFiles | Where-Object {
-            $_ -and
-            $_ -notmatch '\.md$' -and
-            $_ -notmatch '^docs/' -and
-            $_ -notmatch '^\.azure-pipelines/' -and
-            $_ -notmatch '^standards/' -and
-            $_ -notmatch '^\.github/copilot-instructions\.md$'
+            $_ -and (
+              $_ -match '\.(cs|csx|csproj|sln|proj)$' -or
+              $_ -match '\.(js|mjs|cjs|jsx|ts|tsx|rxjs|esproj)$' -or
+              $_ -match '\.(css|scss|sass|less)$' -or
+              $_ -match '\.(py|pyproj)$' -or
+              $_ -match '(^|/)(Directory\.Build\.props|Directory\.Build\.targets|Directory\.Packages\.props|global\.json|package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|tsconfig\.json|jsconfig\.json|webpack\.config\.(js|ts)|vite\.config\.(js|ts)|eslint\.config\.(js|cjs|mjs)|tailwind\.config\.(js|cjs|mjs|ts)|postcss\.config\.(js|cjs|mjs)|pyproject\.toml|requirements\.txt)$' -or
+              $_ -match '\.(props|targets|resx|config|json|xml|sql)$'
+            )
           }
 
           if ($codeChanged) {

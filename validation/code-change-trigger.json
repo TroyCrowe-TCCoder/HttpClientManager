@@ -1,0 +1,5 @@
+{
+  "purpose": "Safe code-significant change marker for pipeline validation runs.",
+  "instructions": "Update the revision value when you need a harmless change that should still count as code-significant.",
+  "revision": 1
+}
