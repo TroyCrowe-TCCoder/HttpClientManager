@@ -1,6 +1,3 @@
-# Class Library — main release pipeline
-# Register this file as the main release pipeline in Azure DevOps.
-
 trigger:
   branches:
     include:
@@ -14,12 +11,43 @@ variables:
 - template: ../variables/common.yml
 
 stages:
-- template: ../templates/change-detection.yml
-  parameters:
-    mode: main
-- template: ../templates/publish.yml
-- template: ../templates/failure.yml
-  parameters:
-    dependsOn:
-    - ChangeDetection
-    - Publish
+- stage: Publish
+  displayName: Publish
+  jobs:
+  - job: PublishPackage
+    displayName: Publish NuGet package
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
+
+    - task: UseDotNet@2
+      displayName: Use .NET SDK
+      inputs:
+        packageType: sdk
+        version: 10.0.x
+        includePreviewVersions: true
+
+    - task: DotNetCoreCLI@2
+      displayName: Restore packages
+      inputs:
+        command: restore
+        projects: $(projectPath)
+
+    - task: DotNetCoreCLI@2
+      displayName: Pack NuGet package
+      inputs:
+        command: pack
+        packagesToPack: $(projectPath)
+        configuration: $(buildConfiguration)
+        outputDir: $(packageOutputPath)
+
+    - task: NuGetAuthenticate@1
+      displayName: Authenticate to Azure Artifacts
+
+    - task: DotNetCoreCLI@2
+      displayName: Publish package to Azure Artifacts
+      inputs:
+        command: custom
+        custom: nuget
+        arguments: push "$(packageOutputPath)/*.nupkg" --source "$(artifactsFeedUrl)" --skip-duplicate

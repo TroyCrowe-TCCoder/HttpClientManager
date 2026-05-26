@@ -1,23 +1,17 @@
-# Stage template — run unit tests after a successful build when code changes exist.
-
 stages:
 - stage: Test
   displayName: Test
-  dependsOn: Build
+  dependsOn:
+  - ChangeDetection
+  - Build
   variables:
-    codeChanged: $[ stageDependencies.ChangeDetection.Detect.outputs['setvar.codeChanged'] ]
-    buildSucceeded: $[ stageDependencies.Build.SetBuildState.outputs['setvar.buildSucceeded'] ]
-    artifactsAvailable: $[ stageDependencies.Build.SetBuildState.outputs['setvar.artifactsAvailable'] ]
+    CodeChanges: $[ stageDependencies.ChangeDetection.Detect.outputs['setvar.CodeChanges'] ]
   jobs:
   - job: RunTests
     displayName: Run unit tests
     pool:
       vmImage: ubuntu-latest
-    condition: |
-      and(
-        eq(variables['codeChanged'], 'true'),
-        eq(variables['buildSucceeded'], 'true')
-      )
+    condition: eq(variables['CodeChanges'], 'true')
     steps:
     - checkout: self
 
@@ -29,51 +23,14 @@ stages:
         includePreviewVersions: true
 
     - task: DotNetCoreCLI@2
-      displayName: Restore packages
+      displayName: Restore test packages
       inputs:
         command: restore
-        projects: $(solutionPath)
+        projects: $(testProjectPath)
 
     - task: DotNetCoreCLI@2
       displayName: Run tests
       inputs:
         command: test
-        projects: $(solutionPath)
-        arguments: --configuration $(buildConfiguration) --verbosity normal
-
-  - job: SetTestState
-    displayName: Set test state
-    dependsOn:
-    - RunTests
-    condition: always()
-    pool:
-      vmImage: ubuntu-latest
-    variables:
-      testResult: $[ dependencies.RunTests.result ]
-    steps:
-    - checkout: none
-
-    - task: PowerShell@2
-      displayName: Set test output variables
-      name: setvar
-      inputs:
-        pwsh: true
-        targetType: inline
-        script: |
-          $codeChanged = '$(codeChanged)'
-          $buildSucceeded = '$(buildSucceeded)'
-          $testResult = '$(testResult)'
-          $testSucceeded = 'false'
-
-          if ($codeChanged -eq 'true' -and $buildSucceeded -eq 'true') {
-            if ($testResult -eq 'Succeeded') {
-              $testSucceeded = 'true'
-            } else {
-              Write-Error "Tests were required but did not succeed. Result: $testResult"
-              exit 1
-            }
-          } else {
-            $testSucceeded = 'true'
-          }
-
-          Write-Host "##vso[task.setvariable variable=testSucceeded;isOutput=true]$testSucceeded"
+        projects: $(testProjectPath)
+        arguments: --configuration $(buildConfiguration) --no-restore --verbosity normal

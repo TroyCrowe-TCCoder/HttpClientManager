@@ -1,17 +1,15 @@
-# Stage template — restore, build, pack, and publish the package artifact.
-
 stages:
 - stage: Build
   displayName: Build
   dependsOn: ChangeDetection
   variables:
-    codeChanged: $[ stageDependencies.ChangeDetection.Detect.outputs['setvar.codeChanged'] ]
+    CodeChanges: $[ stageDependencies.ChangeDetection.Detect.outputs['setvar.CodeChanges'] ]
   jobs:
   - job: BuildLibrary
     displayName: Restore, build, and pack
     pool:
       vmImage: ubuntu-latest
-    condition: eq(variables['codeChanged'], 'true')
+    condition: eq(variables['CodeChanges'], 'true')
     steps:
     - checkout: self
 
@@ -26,13 +24,13 @@ stages:
       displayName: Restore packages
       inputs:
         command: restore
-        projects: $(solutionPath)
+        projects: $(projectPath)
 
     - task: DotNetCoreCLI@2
       displayName: Build library
       inputs:
         command: build
-        projects: $(solutionPath)
+        projects: $(projectPath)
         arguments: --configuration $(buildConfiguration) --no-restore
 
     - task: DotNetCoreCLI@2
@@ -41,49 +39,10 @@ stages:
         command: pack
         packagesToPack: $(projectPath)
         configuration: $(buildConfiguration)
-        outputDir: $(Build.ArtifactStagingDirectory)/nuget
+        outputDir: $(packageOutputPath)
 
     - task: PublishPipelineArtifact@1
       displayName: Publish package artifact
       inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/nuget
+        targetPath: $(packageOutputPath)
         artifactName: $(buildPackageArtifactName)
-
-  - job: SetBuildState
-    displayName: Set build state
-    dependsOn:
-    - BuildLibrary
-    condition: always()
-    pool:
-      vmImage: ubuntu-latest
-    variables:
-      buildResult: $[ dependencies.BuildLibrary.result ]
-    steps:
-    - checkout: none
-
-    - task: PowerShell@2
-      displayName: Set build output variables
-      name: setvar
-      inputs:
-        pwsh: true
-        targetType: inline
-        script: |
-          $codeChanged = '$(codeChanged)'
-          $buildResult = '$(buildResult)'
-          $buildSucceeded = 'false'
-          $artifactsAvailable = 'false'
-
-          if ($codeChanged -eq 'true') {
-            if ($buildResult -eq 'Succeeded') {
-              $buildSucceeded = 'true'
-              $artifactsAvailable = 'true'
-            } else {
-              Write-Error "Build was required but did not succeed. Result: $buildResult"
-              exit 1
-            }
-          } else {
-            $buildSucceeded = 'true'
-          }
-
-          Write-Host "##vso[task.setvariable variable=buildSucceeded;isOutput=true]$buildSucceeded"
-          Write-Host "##vso[task.setvariable variable=artifactsAvailable;isOutput=true]$artifactsAvailable"
