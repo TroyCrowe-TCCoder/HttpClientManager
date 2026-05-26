@@ -29,8 +29,8 @@ if (-not $solution -and -not $project)
     exit 1
 }
 
-$buildTarget = if ($project) { $project.FullName } else { $solution.FullName }
-$buildTargetName = if ($project) { $project.Name } else { $solution.Name }
+$buildTarget = if ($solution) { $solution.FullName } else { $project.FullName }
+$buildTargetName = if ($solution) { $solution.Name } else { $project.Name }
 
 Write-Host "Restoring $buildTargetName..."
 dotnet restore $buildTarget

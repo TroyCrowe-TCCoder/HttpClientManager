@@ -48,6 +48,9 @@
 
   <ItemGroup>
     <Compile Remove="HttpClientManager.Tests\**\*.cs" />
+    <None Remove="HttpClientManager.Tests\**" />
+    <Content Remove="HttpClientManager.Tests\**" />
+    <EmbeddedResource Remove="HttpClientManager.Tests\**" />
   </ItemGroup>
 </Project>
 
