@@ -11,8 +11,15 @@ variables:
 - template: ../variables/common.yml
 
 stages:
+- template: ../templates/change-detection.yml
+  parameters:
+    mode: main
 - stage: Publish
   displayName: Publish
+  dependsOn: ChangeDetection
+  variables:
+    CodeChanges: $[ stageDependencies.ChangeDetection.Detect.outputs['setvar.CodeChanges'] ]
+  condition: eq(variables['CodeChanges'], 'true')
   jobs:
   - job: PublishPackage
     displayName: Publish NuGet package
@@ -50,4 +57,4 @@ stages:
       inputs:
         command: custom
         custom: nuget
-        arguments: push "$(packageOutputPath)/*.nupkg" --source "$(artifactsFeedUrl)" --skip-duplicate
+        arguments: push "$(packageOutputPath)/*.nupkg" --source "$(artifactsFeedUrl)" --api-key AzureDevOps --skip-duplicate
