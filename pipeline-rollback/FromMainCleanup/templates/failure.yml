@@ -1,0 +1,115 @@
+# Stage template — notify when a pipeline fails.
+
+parameters:
+- name: dependsOn
+  type: object
+  default:
+  - ChangeDetection
+  - Build
+  - Test
+
+stages:
+- stage: Failure
+  displayName: Failure
+  dependsOn: ${{ parameters.dependsOn }}
+  condition: failed()
+  jobs:
+  - job: NotifyFailure
+    displayName: Notify failure
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: none
+
+    - task: PowerShell@2
+      displayName: Send failure notification
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+        SMTP_HOST: $(smtpHost)
+        SMTP_PORT: $(smtpPort)
+        SMTP_USERNAME: $(smtpUsername)
+        SMTP_PASSWORD: $(smtpPassword)
+        SMTP_ENABLE_SSL: $(smtpEnableSsl)
+      inputs:
+        pwsh: true
+        targetType: inline
+        script: |
+          $ErrorActionPreference = 'Stop'
+
+          $toAddress = '$(failureNotificationEmail)'
+          $buildNumber = '$(Build.BuildNumber)'
+          $buildId = '$(Build.BuildId)'
+          $collectionUri = '$(System.CollectionUri)'
+          $project = '$(System.TeamProject)'
+          $pipelineName = '$(Build.DefinitionName)'
+          $branch = '$(Build.SourceBranch)' -replace '^refs/heads/', ''
+          $runUrl = "${collectionUri}${project}/_build/results?buildId=$buildId"
+          $prId = '$(System.PullRequest.PullRequestId)'
+          if ([string]::IsNullOrWhiteSpace($prId) -or $prId -like '*$(*)*') {
+            $prId = '$(prContextPullRequestId)'
+          }
+
+          $subject = "Pipeline failed: $pipelineName #$buildNumber"
+          $bodyLines = @(
+            'Pipeline failure detected.',
+            '',
+            "Pipeline: $pipelineName",
+            "Build number: $buildNumber",
+            "Branch: $branch",
+            "Run: $runUrl",
+            "PR: $prId"
+          )
+          $body = [string]::Join([Environment]::NewLine, $bodyLines)
+
+          if (-not [string]::IsNullOrWhiteSpace($env:SMTP_HOST) -and -not [string]::IsNullOrWhiteSpace($env:SMTP_USERNAME) -and -not [string]::IsNullOrWhiteSpace($env:SMTP_PASSWORD)) {
+            $smtpPort = 587
+            if (-not [string]::IsNullOrWhiteSpace($env:SMTP_PORT)) {
+              $smtpPort = [int]$env:SMTP_PORT
+            }
+
+            $enableSsl = $true
+            if (-not [string]::IsNullOrWhiteSpace($env:SMTP_ENABLE_SSL)) {
+              $enableSsl = [System.Convert]::ToBoolean($env:SMTP_ENABLE_SSL)
+            }
+
+            $securePassword = ConvertTo-SecureString $env:SMTP_PASSWORD -AsPlainText -Force
+            $credential = [PSCredential]::new($env:SMTP_USERNAME, $securePassword)
+            Send-MailMessage -To $toAddress -From $env:SMTP_USERNAME -Subject $subject -Body $body -SmtpServer $env:SMTP_HOST -Port $smtpPort -UseSsl:$enableSsl -Credential $credential
+            Write-Host "Failure email sent to $toAddress."
+          } else {
+            Write-Warning "SMTP settings are not configured. Skipping email delivery to $toAddress."
+            Write-Host $body
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($prId) -and $prId -notlike '*$(*)*') {
+            $repoId = '$(Build.Repository.ID)'
+            $messageLines = @(
+              '**Approval pipeline failed**',
+              '',
+              '| Field | Value |',
+              '|---|---|',
+              "| Pipeline | $pipelineName |",
+              "| Build | $buildNumber |",
+              "| Branch | $branch |",
+              "| Run | $runUrl |"
+            )
+            $message = [string]::Join([Environment]::NewLine, $messageLines)
+
+            $threadUri = "${collectionUri}${project}/_apis/git/repositories/${repoId}/pullRequests/${prId}/threads?api-version=7.1"
+            $bodyJson = @{
+              comments = @(@{
+                parentCommentId = 0
+                content = $message
+                commentType = 1
+              })
+              status = 1
+            } | ConvertTo-Json -Depth 5
+
+            $headers = @{
+              Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
+              'Content-Type' = 'application/json'
+            }
+
+            Invoke-RestMethod -Method Post -Uri $threadUri -Headers $headers -Body $bodyJson | Out-Null
+            Write-Host "Failure comment posted to PR #$prId."
+          }

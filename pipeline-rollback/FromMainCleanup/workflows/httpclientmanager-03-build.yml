@@ -1,0 +1,62 @@
+# Class Library — build and pack
+# App type: Class Library (.NET NuGet package or shared assembly)
+# Environment: dev
+# Step 2 of 5 — Do NOT register this file as a pipeline. Loaded by httpclientmanager-dev.yml.
+# Runs only when code changes are detected (codeChanged == true).
+#
+# Compiles the library and produces the NuGet package as the promoted output.
+# Publishing the artifact here makes it traceable to this commit, PR, and build run.
+# Variables (buildConfiguration, solutionPath, projectPath) are resolved from common.yml
+# loaded by the httpclientmanager-dev.yml entry-point.
+
+stages:
+- stage: Build
+  displayName: Build
+  dependsOn: ChangeDetection
+  condition: |
+    and(
+      succeeded('ChangeDetection'),
+      eq(dependencies.ChangeDetection.outputs['Detect.setvar.codeChanged'], 'true')
+    )
+  jobs:
+  - job: BuildLibrary
+    displayName: Restore, compile, and pack
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+
+    - checkout: self
+
+    - task: UseDotNet@2
+      displayName: Use .NET SDK
+      inputs:
+        packageType: sdk
+        version: 10.0.x
+        includePreviewVersions: true
+
+    - task: DotNetCoreCLI@2
+      displayName: Restore packages
+      inputs:
+        command: restore
+        projects: $(solutionPath)
+
+    - task: DotNetCoreCLI@2
+      displayName: Build library
+      inputs:
+        command: build
+        projects: $(solutionPath)
+        arguments: --configuration $(buildConfiguration) --no-restore
+
+    - task: DotNetCoreCLI@2
+      displayName: Pack NuGet package
+      inputs:
+        command: pack
+        packagesToPack: $(projectPath)
+        configuration: $(buildConfiguration)
+        outputDir: $(Build.ArtifactStagingDirectory)/nuget
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish build NuGet artifact
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/nuget
+        artifactName: $(buildPackageArtifactName)
