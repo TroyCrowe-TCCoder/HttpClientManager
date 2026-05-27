@@ -1,0 +1,11 @@
+variables:
+  buildConfiguration: 'Release'
+  projectPath: 'HttpClientManager.csproj'
+  testProjectPath: 'HttpClientManager.Tests/HttpClientManager.Tests.csproj'
+  buildPackageArtifactName: 'nuget-drop-build'
+  packageOutputPath: '$(Build.ArtifactStagingDirectory)/nuget'
+  devNextBranch: 'main'
+  artifactsFeedName: 'CaptiveInnovations'
+  artifactsFeedUrl: 'https://pkgs.dev.azure.com/tcrowe0170/_packaging/CaptiveInnovations/nuget/v3/index.json'
+  devValidationPipelinePath: '.azure-pipelines/Dev/dev.yml'
+  mainReleasePipelinePath: '.azure-pipelines/Main/main.yml'
