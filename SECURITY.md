@@ -6,8 +6,8 @@ Only the latest release of **HttpClientManager** receives security fixes. Older 
 
 | Version | Supported |
 |---|---|
-| 1.x (latest) | ✅ Yes |
-| < 1.0 | ❌ No |
+| 2.x (latest) | ✅ Yes |
+| < 2.0 | ❌ No |
 
 ---
 
@@ -38,7 +38,7 @@ HttpClientManager is a class library. The security of any deployment depends hea
 
 ### Library-Enforced Controls
 
-The following defences are implemented directly in the library and throw `ArgumentException` on violation — they cannot be bypassed by callers:
+The following defences are implemented directly in the library and cannot be bypassed by callers. Input-validation failures throw `ArgumentException`; oversized response bodies are rejected with `InvalidOperationException`:
 
 | Control | Where enforced | What it prevents |
 |---|---|---|
@@ -62,7 +62,7 @@ The following defences are implemented directly in the library and throw `Argume
 ### Access Token Handling
 
 - **Never log access tokens.** Do not pass tokens to any logging framework, even at `Debug` level.
-- **Do not cache tokens in static fields or singletons.** Services registerd as `Scoped` are disposed per request scope; do not promote tokens to longer lifetimes.
+- **Do not cache tokens in static fields or singletons.** Services registered as `Scoped` are disposed per request scope; do not promote tokens to longer lifetimes.
 - **Treat tokens as secrets.** Store them in a secrets manager (Azure Key Vault, environment variables, .NET Secret Manager) — never in source code or `appsettings.json` committed to source control.
 - **Token refresh is the caller's responsibility.** This library passes the token provided at call time directly into the `Authorization` header. Expired tokens will result in `401 Unauthorized` responses.
 - **Use short-lived tokens.** Prefer tokens with lifetimes of minutes over hours where the downstream API supports it.

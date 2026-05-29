@@ -34,9 +34,18 @@
 
   <!-- Include README.md at the package root so NuGet.org and VS display it -->
   <ItemGroup>
+    <None Include=".azure-pipelines\Dev\build.yml" />
+    <None Include=".azure-pipelines\Dev\carry-forward.yml" />
+    <None Include=".azure-pipelines\Dev\change-detection.yml" />
+    <None Include=".azure-pipelines\Dev\dev.yml" />
+    <None Include=".azure-pipelines\Dev\test.yml" />
+    <None Include=".azure-pipelines\Main\change-detection.yml" />
+    <None Include=".azure-pipelines\Main\main.yml" />
+    <None Include=".azure-pipelines\Main\publish.yml" />
     <None Include=".azure-pipelines\templates\build.yml" />
     <None Include=".azure-pipelines\templates\change-detection.yml" />
     <None Include=".azure-pipelines\templates\test.yml" />
+    <None Include=".azure-pipelines\Variables\variables.yml" />
     <None Include=".azure-pipelines\workflows\dev.yml" />
     <None Include=".azure-pipelines\workflows\publish.yml" />
     <None Include="README.md" Pack="true" PackagePath="\" />
@@ -47,9 +56,15 @@
 
 
   <ItemGroup>
+    <Compile Remove=".azure-pipelines\templates\**" />
+    <Compile Remove=".azure-pipelines\workflows\**" />
     <Compile Remove="HttpClientManager.Tests\**\*.cs" />
+    <None Remove=".azure-pipelines\templates\**" />
+    <None Remove=".azure-pipelines\workflows\**" />
     <None Remove="HttpClientManager.Tests\**" />
     <Content Remove="HttpClientManager.Tests\**" />
+    <EmbeddedResource Remove=".azure-pipelines\templates\**" />
+    <EmbeddedResource Remove=".azure-pipelines\workflows\**" />
     <EmbeddedResource Remove="HttpClientManager.Tests\**" />
   </ItemGroup>
 </Project>
