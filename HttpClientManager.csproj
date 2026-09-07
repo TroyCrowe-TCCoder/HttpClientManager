@@ -12,13 +12,14 @@
     <PackageId>HttpClientManager</PackageId>
     <Version>2.0.0</Version>
     <Authors>Troy C</Authors>
-    <Company>Captive Innovations</Company>
+    <Company>TC-Coder</Company>
     <Product>HttpClientManager</Product>
     <Description>A .NET 10 class library providing a clean, DI-friendly abstraction over IHttpClientFactory. Centralises HTTP client creation, request building, and response processing behind well-defined interfaces.</Description>
     <PackageTags>httpclient;http;rest;dependency-injection;dotnet</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://dev.azure.com/tcrowe0170/_git/HttpClientManager</RepositoryUrl>
+    <RepositoryUrl>https://github.com/TroyCrowe-TCCoder/HttpClientManager</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/TroyCrowe-TCCoder/HttpClientManager</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>
 
     <!-- Embed XML doc comments so consumers see IntelliSense from the package -->
@@ -34,20 +35,6 @@
 
   <!-- Include README.md at the package root so NuGet.org and VS display it -->
   <ItemGroup>
-    <None Include=".azure-pipelines\Dev\build.yml" />
-    <None Include=".azure-pipelines\Dev\carry-forward.yml" />
-    <None Include=".azure-pipelines\Dev\change-detection.yml" />
-    <None Include=".azure-pipelines\Dev\dev.yml" />
-    <None Include=".azure-pipelines\Dev\test.yml" />
-    <None Include=".azure-pipelines\Main\change-detection.yml" />
-    <None Include=".azure-pipelines\Main\main.yml" />
-    <None Include=".azure-pipelines\Main\publish.yml" />
-    <None Include=".azure-pipelines\templates\build.yml" />
-    <None Include=".azure-pipelines\templates\change-detection.yml" />
-    <None Include=".azure-pipelines\templates\test.yml" />
-    <None Include=".azure-pipelines\Variables\variables.yml" />
-    <None Include=".azure-pipelines\workflows\dev.yml" />
-    <None Include=".azure-pipelines\workflows\publish.yml" />
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
@@ -56,15 +43,9 @@
 
 
   <ItemGroup>
-    <Compile Remove=".azure-pipelines\templates\**" />
-    <Compile Remove=".azure-pipelines\workflows\**" />
     <Compile Remove="HttpClientManager.Tests\**\*.cs" />
-    <None Remove=".azure-pipelines\templates\**" />
-    <None Remove=".azure-pipelines\workflows\**" />
     <None Remove="HttpClientManager.Tests\**" />
     <Content Remove="HttpClientManager.Tests\**" />
-    <EmbeddedResource Remove=".azure-pipelines\templates\**" />
-    <EmbeddedResource Remove=".azure-pipelines\workflows\**" />
     <EmbeddedResource Remove="HttpClientManager.Tests\**" />
   </ItemGroup>
 </Project>

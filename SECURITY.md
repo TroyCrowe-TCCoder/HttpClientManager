@@ -15,10 +15,10 @@ Only the latest release of **HttpClientManager** receives security fixes. Older 
 
 **Do not open a public issue for security vulnerabilities.**
 
-Report security concerns privately by emailing the repository owner via the contact details on the Azure DevOps organisation page at:
+Report security concerns privately via GitHub Security Advisories at:
 
 ```
-https://dev.azure.com/tcrowe0170
+https://github.com/TroyCrowe-TCCoder/HttpClientManager/security/advisories/new
 ```
 
 Include as much detail as possible:

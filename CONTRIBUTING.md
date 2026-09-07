@@ -30,7 +30,7 @@ Thank you for contributing to **HttpClientManager**. This document describes the
 
 ```powershell
 # Clone the repository
-git clone https://dev.azure.com/tcrowe0170/_git/HttpClientManager
+git clone https://github.com/TroyCrowe-TCCoder/HttpClientManager
 cd HttpClientManager
 
 # Restore dependencies
@@ -186,11 +186,11 @@ docs(README): add named client registration example
 ## Pull Request Process
 
 1. **Open a PR** against `dev` with a clear title using the Conventional Commits format
-2. **Link the work item** in the PR description (Azure DevOps `AB#<id>`)
+2. **Reference related issues** in the PR description (e.g. `Fixes #<id>`)
 3. Fill in the PR template (below) completely
-4. Ensure the validation pipeline passes before requesting review
+4. Ensure CI checks pass before requesting review
 5. At least **one approving review** is required before merge
-6. Approved `feature/* -> dev` PRs are completed by the validation pipeline after required checks succeed
+6. Approved `feature/* -> dev` PRs are completed after required checks succeed
 
 ### PR Description Template
 
