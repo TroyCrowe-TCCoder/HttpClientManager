@@ -32,7 +32,7 @@ This document describes the component design, design patterns, and architectural
 | `HttpClientBuilder` | `IHttpClientBuilder` | Produce configured `HttpClient` instances | Store tokens, own lifecycle of clients |
 | `RequestManager` | `IRequestManager` | Build `HttpRequestMessage` objects | Perform I/O, hold state |
 | `RequestProcessor` | `IRequestProcessor` | Execute HTTP calls and return `HttpOperationResult` | Interpret business logic in responses |
-| `ServiceCollectionExtensions` | — | Register services via `AddHttpClientManager()` | Be used outside application bootstrap |
+| `ServiceCollectionExtensions` | — | Register services via `AddHttpClientManager(Action<HttpClientManagerOptions>)` | Be used outside application bootstrap |
 
 ---
 
@@ -66,9 +66,9 @@ Consumer → IHttpClientBuilder.CreateOAuthClient(...)
 
 ### Service Locator avoided — Dependency Injection
 
-No component calls `IServiceProvider` directly. All dependencies are constructor-injected. `ServiceCollectionExtensions.AddHttpClientManager()` is the single registration point, keeping the rest of the library free of DI-framework concerns.
+No component calls `IServiceProvider` directly. All dependencies are constructor-injected. `ServiceCollectionExtensions.AddHttpClientManager(...)` is the single registration point, keeping the rest of the library free of DI-framework concerns.
 
-`AddHttpClientManager()` registers `Microsoft.Extensions.Logging` and `IHttpClientFactory` so the library's `ILogger<T>` and `IHttpClientFactory` dependencies resolve correctly inside any host.
+`AddHttpClientManager(...)` registers `Microsoft.Extensions.Logging` and `IHttpClientFactory` so the library's `ILogger<T>` and `IHttpClientFactory` dependencies resolve correctly inside any host. It also registers `HttpClientManagerOptions` with startup validation and aligns `HttpClient.MaxResponseContentBufferSize` to the configured limit.
 
 ---
 
@@ -87,7 +87,7 @@ No component calls `IServiceProvider` directly. All dependencies are constructor
 
 3. Caller executes request
       IRequestProcessor.PostAsync(client, request)
-      → bounded body read (10 MB max for declared or chunked responses)
+      → bounded body read (`MaxResponseBodyBytes` max for declared or chunked responses)
       → returns HttpOperationResult { StatusCode, Body, ResponseHeaders }
 
 4. Caller deserializes body
@@ -164,9 +164,9 @@ ServiceCollectionExtensions  (static — no dependencies)
 
 **Context:** The original `HostBuilder.ConfigureServices()` returned a new isolated `IServiceCollection`, which was incompatible with hosts that already owned a collection (ASP.NET Core, Generic Host). The idiomatic .NET pattern is a `this IServiceCollection` extension method.
 
-**Decision:** `HostBuilder` was removed. `ServiceCollectionExtensions.AddHttpClientManager(this IServiceCollection)` is the sole registration entry point.
+**Decision:** `HostBuilder` was removed. `ServiceCollectionExtensions.AddHttpClientManager(this IServiceCollection, Action<HttpClientManagerOptions>)` is the sole registration entry point. Per ADR-0002 the host supplies every value through the delegate; the library has no defaults, reads no configuration, and validates the options on start.
 
-**Consequences:** Consumers call `builder.Services.AddHttpClientManager()` and the library registers into the host's existing container. `ServiceCollectionExtensions` is a static class and cannot be mocked; only the registered services are tested.
+**Consequences:** Consumers call `builder.Services.AddHttpClientManager(o => o.MaxResponseBodyBytes = ...)` and the library registers into the host's existing container. `ServiceCollectionExtensions` is a static class and cannot be mocked; only the registered services are tested.
 
 ---
 
@@ -178,7 +178,7 @@ ServiceCollectionExtensions  (static — no dependencies)
 
 **Decision:** Added `CancellationToken ct = default` to all six methods in `IRequestProcessor` and their `RequestProcessor` implementations. The token is forwarded to every downstream `HttpClient` call and to the bounded response-body reader used by the JSON/string-returning methods. All async methods in `IRequestProcessor` were also renamed with the `Async` suffix to comply with the async naming standard.
 
-**Consequences:** Non-breaking API addition (default parameter). Existing callers require no changes. Callers that need cooperative cancellation now pass a `CancellationToken` from their own scope. The body-reading methods also enforce the library's 10 MB response-size limit during streaming, so chunked responses no longer rely solely on named-client buffer configuration.
+**Consequences:** Non-breaking API addition (default parameter). Existing callers require no changes. Callers that need cooperative cancellation now pass a `CancellationToken` from their own scope. The body-reading methods also enforce the configured `MaxResponseBodyBytes` response-size limit during streaming, so chunked responses no longer rely solely on named-client buffer configuration.
 
 ---
 
