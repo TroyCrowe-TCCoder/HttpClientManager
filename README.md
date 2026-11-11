@@ -8,10 +8,10 @@ A .NET 10 class library that provides a clean, DI-friendly abstraction over `IHt
 dotnet add package HttpClientManager
 ```
 
-Register the library in your host setup:
+Register the library in your host setup. The host supplies the maximum response body size; the library has no default and fails at startup if it is not a positive value:
 
 ```csharp
-builder.Services.AddHttpClientManager();
+builder.Services.AddHttpClientManager(options => options.MaxResponseBodyBytes = 10 * 1024 * 1024);
 ```
 
 ---
@@ -55,7 +55,7 @@ This repository follows the class-library promotion model. The validation entry 
 - **Strongly typed request builders** — GET, POST (JSON + multipart), PUT, DELETE
 - **Consistent response handling** — returns `(HttpStatusCode, string)` tuples for easy downstream deserialization
 - **Fail-fast validation** — malformed relative URIs, unsafe file names, invalid OAuth base paths, and malformed Bearer tokens throw `ArgumentException` before dispatch
-- **Bounded response reading** — body-reading methods enforce a 10 MB limit for both declared and chunked responses; streaming methods remain available for larger payloads
+- **Bounded response reading** — body-reading methods enforce the host-configured `MaxResponseBodyBytes` limit for both declared and chunked responses; streaming methods remain available for larger payloads
 - **Library-friendly logging** — uses `ILogger<T>` for client-creation and request-dispatch diagnostics without logging tokens or other secrets
 - **DI-native** — all components are interface-backed and registered with `IServiceCollection`
 - **Async end-to-end** — all I/O operations are `Task`-based with no sync-over-async
@@ -231,7 +231,7 @@ if (statusCode == HttpStatusCode.OK)
 }
 ```
 
-Body-reading methods enforce a 10 MB response limit even when the server omits `Content-Length` and streams a chunked response. For larger payloads, use the file/streaming methods.
+Body-reading methods enforce the configured `MaxResponseBodyBytes` limit even when the server omits `Content-Length` and streams a chunked response. For larger payloads, use the file/streaming methods.
 
 The library emits only minimal structured logs that are appropriate for a reusable class library: debug logs around client creation and request dispatch, plus warning logs when response-size limits reject a payload. Access tokens are never logged.
 
@@ -283,7 +283,7 @@ var stream = await response.Content.ReadAsStreamAsync();
 - **Never log access tokens.** Pass tokens at call time; do not cache them in the library.
 - **Do not store tokens in static fields or singletons.** Use scoped services and short-lived clients.
 - **OAuth clients require `https://` base paths.** The library enforces this and rejects malformed Bearer token header values with safe `ArgumentException` messages.
-- **Use the streaming methods for large payloads.** `GetAsync`, `PostAsync`, `PutAsync`, and `DeleteAsync` are intentionally capped at 10 MB.
+- **Use the streaming methods for large payloads.** `GetAsync`, `PostAsync`, `PutAsync`, and `DeleteAsync` are intentionally capped at the configured `MaxResponseBodyBytes`.
 - **Rotate tokens before expiry.** The library passes tokens directly to `Authorization` headers — token refresh is the caller's responsibility.
 
 See [SECURITY.md](SECURITY.md) for the full security policy.
