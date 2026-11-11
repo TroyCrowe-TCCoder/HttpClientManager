@@ -1,12 +1,13 @@
 ﻿namespace HttpClientManager;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Net;
 using System.Text;
 using HttpClientManager.Interfaces;
 
 /// <summary>Executes HTTP requests against a provided <see cref="HttpClient"/> and returns normalised results.</summary>
-public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProcessor
+public class RequestProcessor(ILogger<RequestProcessor> logger, IOptions<HttpClientManagerOptions> options) : IRequestProcessor
 {
     private static readonly Action<ILogger, string, string, Exception?> LogSendingRequestMessage =
         LoggerMessage.Define<string, string>(LogLevel.Debug, new EventId(1, "SendingRequest"), "Sending {Method} request to {RequestUri}.");
@@ -22,9 +23,9 @@ public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProces
     private readonly ILogger<RequestProcessor> _logger =
         logger ?? throw new ArgumentNullException(nameof(logger));
 
-    // Maximum response body size buffered into memory by the body-reading methods.
+    // Maximum response body size buffered into memory by the body-reading methods, supplied by the host.
     // Protects against OOM when a server advertises a large Content-Length or streams a chunked response.
-    private const long MaxResponseBodyBytes = 10 * 1024 * 1024; // 10 MB
+    private long MaxResponseBodyBytes => options.Value.MaxResponseBodyBytes;
 
     /// <inheritdoc/>
     public async Task<HttpOperationResult> DeleteAsync(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
@@ -150,7 +151,7 @@ public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProces
         {
             LogRejectedDeclaredResponseMessage(_logger, contentLength.Value, MaxResponseBodyBytes, null);
             throw new InvalidOperationException(
-                $"Response Content-Length ({contentLength} bytes) exceeds the maximum permitted size of {MaxResponseBodyBytes / (1024 * 1024)} MB. " +
+                $"Response Content-Length ({contentLength} bytes) exceeds the maximum permitted size of {MaxResponseBodyBytes} bytes. " +
                 "Use GetFileAsync or PostFileRequestAsync to stream large responses.");
         }
     }
@@ -177,7 +178,7 @@ public class RequestProcessor(ILogger<RequestProcessor> logger) : IRequestProces
             {
                 LogRejectedChunkedResponseMessage(_logger, totalRead, MaxResponseBodyBytes, null);
                 throw new InvalidOperationException(
-                    $"Response body exceeds the maximum permitted size of {MaxResponseBodyBytes / (1024 * 1024)} MB. " +
+                    $"Response body exceeds the maximum permitted size of {MaxResponseBodyBytes} bytes. " +
                     "Use GetFileAsync or PostFileRequestAsync to stream large responses.");
             }
             // Copy only the populated region of the reusable buffer into the bounded memory stream.

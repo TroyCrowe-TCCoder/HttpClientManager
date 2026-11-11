@@ -3,10 +3,14 @@ namespace HttpClientManager.Tests;
 using System.Net;
 using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 public class RequestProcessorTests
 {
     private const int MaxResponseBodyBytes = 10 * 1024 * 1024;
+
+    private static RequestProcessor CreateSut() =>
+        new(NullLogger<RequestProcessor>.Instance, Options.Create(new HttpClientManagerOptions { MaxResponseBodyBytes = MaxResponseBodyBytes }));
 
     [Fact]
     public async Task WhenGetAsyncIsCalledReturnsStatusCodeBodyAndPreservesHeadersAsync()
@@ -21,7 +25,7 @@ public class RequestProcessorTests
             return response;
         });
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.example.com/items");
         request.Headers.Add("X-Test", "value");
 
@@ -40,7 +44,7 @@ public class RequestProcessorTests
             Content = new StringContent("deleted", Encoding.UTF8, "text/plain")
         });
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Delete, "https://api.example.com/items/42");
 
         var result = await sut.DeleteAsync(client, request);
@@ -57,7 +61,7 @@ public class RequestProcessorTests
             Content = new StringContent("created", Encoding.UTF8, "text/plain")
         });
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.example.com/items")
         {
             Content = new StringContent("{}", Encoding.UTF8, "application/json")
@@ -77,7 +81,7 @@ public class RequestProcessorTests
             Content = new StringContent("updated", Encoding.UTF8, "text/plain")
         });
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Put, "https://api.example.com/items/42")
         {
             Content = new StringContent("{}", Encoding.UTF8, "application/json")
@@ -98,7 +102,7 @@ public class RequestProcessorTests
             Content = oversizedContent
         });
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.example.com/items");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => sut.GetAsync(client, request));
@@ -115,7 +119,7 @@ public class RequestProcessorTests
             Content = oversizedContent
         });
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.example.com/items");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => sut.GetAsync(client, request));
@@ -132,7 +136,7 @@ public class RequestProcessorTests
             Content = content
         });
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.example.com/items");
 
         var result = await sut.GetAsync(client, request);
@@ -149,7 +153,7 @@ public class RequestProcessorTests
         };
         var handler = new StubHttpMessageHandler((_, _) => response);
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.example.com/file");
 
         var result = await sut.GetFileAsync(client, request);
@@ -166,7 +170,7 @@ public class RequestProcessorTests
         };
         var handler = new StubHttpMessageHandler((_, _) => response);
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.example.com/file")
         {
             Content = new StringContent("{}", Encoding.UTF8, "application/json")
@@ -190,7 +194,7 @@ public class RequestProcessorTests
             return response;
         });
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Patch, "https://api.example.com/items/42")
         {
             Content = new StringContent("{\"name\":\"updated\"}", Encoding.UTF8, "application/json")
@@ -216,7 +220,7 @@ public class RequestProcessorTests
             return response;
         });
         using var client = new HttpClient(handler);
-        var sut = new RequestProcessor(NullLogger<RequestProcessor>.Instance);
+        var sut = CreateSut();
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.example.com/items");
 
         var result = await sut.GetAsync(client, request);
